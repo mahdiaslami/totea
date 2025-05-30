@@ -5,6 +5,10 @@ export default {
     "./src/**/*.{vue,js,ts,jsx,tsx}",
   ],
   theme: {
+    fontFamily: {
+      default: ['Vazirmatn', 'Noto Color Emoji'],
+    },
+
     extend: {},
   },
   plugins: [],
