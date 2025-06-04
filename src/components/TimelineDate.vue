@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import AppDate from '@/app/AppDate';
+import AppDate from '@/app/support/AppDate';
 
 defineProps<{
   date: AppDate
