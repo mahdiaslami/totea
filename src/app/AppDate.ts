@@ -38,4 +38,8 @@ export default class AppDate {
   static fromString(val: string) {
     return new AppDate(new Date(val))
   }
+
+  isEqual(date: AppDate) {
+    return this._date.getTime() === date._date.getTime()
+  }
 }
