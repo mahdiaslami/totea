@@ -16,13 +16,4 @@ export default class Task {
     this.text = text
     this.completedAt = completedAt
   }
-
-  static fromArray(arr: RawTask[]) {
-    return arr.map(o => {
-      return new Task(
-        o.text,
-        o.completedAt ? AppDate.fromString(o.completedAt) : null
-      )
-    })
-  }
 }
