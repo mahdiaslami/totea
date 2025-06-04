@@ -3,6 +3,7 @@ export default class AppDate {
   _date;
 
   constructor(date: Date = new Date) {
+    date.setHours(0, 0, 0, 0);
     this._date = date
   }
 
