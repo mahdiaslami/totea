@@ -1,4 +1,4 @@
-import AppDate from "./support/AppDate";
+import type AppDateTime from "./support/AppDateTime";
 
 export type RawTask = {
   id: string,
@@ -9,9 +9,9 @@ export type RawTask = {
 export default class Task {
   id: string | null;
   text: string;
-  completedAt: AppDate | null;
+  completedAt: AppDateTime | null;
 
-  constructor(text: string, completedAt: AppDate | null = null) {
+  constructor(text: string, completedAt: AppDateTime | null = null) {
     this.id = null
     this.text = text
     this.completedAt = completedAt
