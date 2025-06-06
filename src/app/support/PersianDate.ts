@@ -2,8 +2,12 @@
 export default class PersianDate {
   _date;
 
-  constructor(date: Date = new Date) {
-    this._date = date
+  constructor(date: number | string | Date = new Date) {
+    if (date instanceof Date) {
+      this._date = date
+    } else {
+      this._date = new Date(date)
+    }
   }
 
   getPersianFullYear(): string {
