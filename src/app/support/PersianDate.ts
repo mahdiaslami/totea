@@ -42,7 +42,41 @@ export default class PersianDate {
     return new this(new Date(val))
   }
 
+  static today() {
+    const result = new this()
+    result._date.setHours(0, 0, 0, 0)
+    return result
+  }
+
   isEqual(date: PersianDate) {
     return this._date.getTime() === date._date.getTime()
+  }
+
+  addDay(): this {
+    return this.addDays(1)
+  }
+
+  subDay(): this {
+    return this.addDays(-1)
+  }
+
+  addDays(value: number): this {
+    this._date.setDate(this._date.getDate() + value)
+    return this
+  }
+
+  distanceInDay(date: Date): number {
+    const cur = this.duplicate()._date.setHours(0, 0, 0, 0)
+    const today = date.setHours(0, 0, 0, 0)
+
+    return (today - cur) / 86400000
+  }
+
+  duplicate(): this {
+    return new (this.constructor as any)(new Date(this._date))
+  }
+
+  toISOString(): string {
+    return this._date.toISOString()
   }
 }
