@@ -10,13 +10,17 @@ defineProps<{
 </script>
 
 <template>
-  <div class="flex flex-row -mx-2">
-      <div class="px-2">
-        <IconSolidCheckRoundedRectangle v-if="task.completedAt" class="fill-sky-600"/>
-        <IconRoundedRectangle v-else class="stroke-slate-300"/>
+  <div>
+    <div class="flex flex-row">
+      <div class="pe-2">
+        <IconSolidCheckRoundedRectangle v-if="task.completedAt"
+          class="fill-sky-600" />
+        <IconRoundedRectangle v-else
+          class="stroke-slate-300" />
       </div>
-      <div class="px-2 grow">
+      <div class="ps-2 grow">
         <p>{{ task.text }}</p>
       </div>
     </div>
+  </div>
 </template>
