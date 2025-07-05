@@ -1,6 +1,6 @@
 import DayRepository from "./DayRepository"
 
-export class TimelineService {
+export default class DaysService {
   static getAllDays() {
     const dayRepository = new DayRepository()
     dayRepository._load()

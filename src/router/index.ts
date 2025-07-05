@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import TimelineView from '../views/TimelineView.vue'
+import DaysView from '../views/DaysView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -7,7 +7,7 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: TimelineView,
+      component: DaysView,
     },
   ],
 })
