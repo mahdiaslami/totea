@@ -1,7 +1,7 @@
 import AppDate from "./support/AppDate";
 import Day, { type RawDay } from "./Day";
 import Task, { type RawTask } from "./Task";
-import { fakeData } from "./support/fakedata";
+import { fakeDays } from "./support/fakedata";
 
 export default class DayRepository {
   _days: Day[];
@@ -27,7 +27,7 @@ export default class DayRepository {
   }
 }
 
-const days = fakeData().map((o: RawDay) => {
+const days = fakeDays(1000).map((o: RawDay) => {
   return new Day(
     AppDate.fromString(o.date),
     mapTasks(o.tasks)
