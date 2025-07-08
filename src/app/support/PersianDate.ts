@@ -10,6 +10,14 @@ export default class PersianDate {
     }
   }
 
+  toLocalDateString(locale = 'fa') {
+    return this._date.toLocaleDateString(locale)
+  }
+
+  getTime() {
+    return this._date.getTime();
+  }
+
   getPersianFullYear(): string {
     const options = { year: 'numeric' } as Intl.DateTimeFormatOptions
     const year = this._date.toLocaleDateString('fa-IR', options)
