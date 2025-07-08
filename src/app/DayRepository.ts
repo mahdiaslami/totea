@@ -23,24 +23,26 @@ export default class DayRepository {
   }
 
   _load() {
-    this._days = fakeData().map((o: RawDay) => {
-      return new Day(
-        AppDate.fromString(o.date),
-        this._loadTasks(o.tasks)
-      )
-    })
+    this._days = days
   }
+}
 
-  _loadTasks(arr: RawTask[]) {
-    return arr.map(o => {
-      const t = new Task(
-        o.text,
-        o.completedAt ? AppDate.fromString(o.completedAt) : null
-      )
+const days = fakeData().map((o: RawDay) => {
+  return new Day(
+    AppDate.fromString(o.date),
+    mapTasks(o.tasks)
+  )
+})
 
-      t.id = o.id
+function mapTasks(arr: RawTask[]) {
+  return arr.map(o => {
+    const t = new Task(
+      o.text,
+      o.completedAt ? AppDate.fromString(o.completedAt) : null
+    )
 
-      return t;
-    })
-  }
+    t.id = o.id
+
+    return t;
+  })
 }
