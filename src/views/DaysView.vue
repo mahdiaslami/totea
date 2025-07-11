@@ -2,10 +2,10 @@
 import Day from '@/app/Day';
 import type AppDate from '@/app/support/AppDate';
 import DaysService from '@/app/DaysService';
-import DaysSwiper from '@/components/DaysSwiper.vue';
 import DayDate from '@/components/DayDate.vue';
 import DayTask from '@/components/DayTask.vue';
 import { reactive } from 'vue';
+import DaysList from '@/components/DaysList.vue';
 
 type Cache = {
   [key: string]: Day
@@ -32,13 +32,13 @@ function getDay(date: AppDate) {
 
 <template>
   <main class="px-8 h-full">
-    <DaysSwiper v-slot="{ date }"
+    <DaysList v-slot="{ date }"
       class="min-h-0 h-full">
       <div class="h-full flex flex-col">
-        <DayDate class="mt-10 mb-10"
+        <DayDate class="my-5 sticky top-0"
           :date="date" />
 
-        <div class="grow overflow-y-scroll">
+        <div class="grow">
           <template v-for="(task, taskIndex) in getDay(date).tasks"
             :key="task.id ?? taskIndex">
             <DayTask class="mb-8"
@@ -46,6 +46,6 @@ function getDay(date: AppDate) {
           </template>
         </div>
       </div>
-    </DaysSwiper>
+    </DaysList>
   </main>
 </template>
