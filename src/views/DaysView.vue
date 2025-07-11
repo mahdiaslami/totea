@@ -3,9 +3,9 @@ import Day from '@/app/Day';
 import type AppDate from '@/app/support/AppDate';
 import DaysService from '@/app/DaysService';
 import DayDate from '@/components/DayDate.vue';
-import DayTask from '@/components/DayTask.vue';
 import { reactive } from 'vue';
 import DaysList from '@/components/DaysList.vue';
+import DayTasks from '@/components/DayTasks.vue';
 
 type Cache = {
   [key: string]: Day
@@ -38,13 +38,8 @@ function getDay(date: AppDate) {
         <DayDate class="my-5 sticky top-0"
           :date="date" />
 
-        <div class="grow">
-          <template v-for="(task, taskIndex) in getDay(date).tasks"
-            :key="task.id ?? taskIndex">
-            <DayTask class="mb-8"
-              :task="task" />
-          </template>
-        </div>
+        <DayTasks :tasks="getDay(date).tasks"
+          class="grow" />
       </div>
     </DaysList>
   </main>
