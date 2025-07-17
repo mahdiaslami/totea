@@ -14,6 +14,10 @@ const emit = defineEmits<{
   scroll: [Event]
 }>()
 
+onMounted(() => {
+  scrollToday()
+})
+
 function handleScroll(ev: Event) {
   const {
     scrollTop,
@@ -45,10 +49,6 @@ function reset() {
     scrollToday()
   })
 }
-
-onMounted(() => {
-  scrollToday()
-})
 
 function scrollToday(behavior: ScrollBehavior = 'auto') {
   document.getElementById("date-today")?.scrollIntoView(
