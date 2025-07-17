@@ -17,6 +17,11 @@ export default class DaysList {
     return this._items
   }
 
+  reset() {
+    this._items = []
+    this.init()
+  }
+
   init() {
     const date = new AppDate()
     this._items.push({
