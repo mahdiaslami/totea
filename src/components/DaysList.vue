@@ -8,6 +8,9 @@ const data = reactive({
   items: daysList.items,
 })
 
+const emit = defineEmits<{
+  scroll: [Event]
+}>()
 
 function handleScroll(ev: Event) {
   const {
@@ -25,6 +28,8 @@ function handleScroll(ev: Event) {
     daysList.prepend()
     data.items = daysList.items
   }
+
+  emit('scroll', ev)
 }
 
 onMounted(() => {
