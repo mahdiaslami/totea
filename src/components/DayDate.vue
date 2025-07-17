@@ -8,7 +8,7 @@ defineProps<{
 </script>
 
 <template>
-  <div class="py-5 space-y-2 bg-white">
+  <div class="py-5 space-y-2">
     <h2 class="text-slate-400">{{ date.getPersianWeekday() }}</h2>
     <p class="text-lg font-normal">{{ date.getPersianDate() }} {{ date.getPersianMonthName() }} {{ date.getPersianFullYear() }}</p>
   </div>

@@ -28,19 +28,35 @@ function getDay(date: AppDate) {
   return result
 }
 
+function handleScroll(ev: Event) {
+  const target = ev.target as HTMLElement
+  const dayDates = target.querySelectorAll('.day-date')
+
+  for (const el of dayDates) {
+    el.classList.toggle('pinned', el.getBoundingClientRect().top === 0)
+  }
+}
+
 </script>
 
 <template>
-  <main class="px-8 h-full">
+  <main class="h-full">
     <DaysList v-slot="{ date }"
+      @scroll="handleScroll"
       class="min-h-0 h-full">
       <div class="h-full flex flex-col">
-        <DayDate class="my-5 sticky top-0"
+        <DayDate class="px-8 my-5 sticky top-0 bg-white day-date"
           :date="date" />
 
         <DayTasks :tasks="getDay(date).tasks"
-          class="grow" />
+          class="grow px-8" />
       </div>
     </DaysList>
   </main>
 </template>
+
+<style>
+.day-date.pinned {
+  @apply border-b border-slate-200 transition-colors;
+}
+</style>
