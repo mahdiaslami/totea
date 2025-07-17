@@ -22,16 +22,19 @@ function handleScroll(ev: Event) {
   } = ev.target as HTMLElement;
 
   const position = scrollTop + clientHeight
-
-  if (position > scrollHeight * 2 / 3) {
-    daysList.append()
-    data.items = daysList.items
-  } else if (position < scrollHeight * 1 / 3) {
-    daysList.prepend()
-    data.items = daysList.items
-  }
+  setItemsByScrollPosition(position, scrollHeight)
 
   emit('scroll', ev)
+}
+
+function setItemsByScrollPosition(position: number, scrollHeight: number) {
+  if (position > scrollHeight * 2 / 3) {
+    daysList.append()
+  } else if (position < scrollHeight * 1 / 3) {
+    daysList.prepend()
+  }
+
+  data.items = daysList.items
 }
 
 function reset() {
