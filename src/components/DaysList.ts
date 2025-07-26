@@ -30,37 +30,38 @@ export default class DaysList {
       elementId: 'date-today'
     })
 
-    this.append()
-    this.prepend()
+    const loadCount = (this._maxCount - 1) / 2
+    this.append(loadCount)
+    this.prepend(loadCount)
   }
 
-  prepend() {
+  prepend(loadCount = this._loadCount) {
     const lastDate = this._items[0].date
 
     let newItems = this._items
 
     if (newItems.length >= this._maxCount) {
-      newItems = newItems.slice(0, newItems.length - this._loadCount)
+      newItems = newItems.slice(0, newItems.length - loadCount)
     }
 
     newItems.unshift(
-      ...(this._getDays(lastDate, -1 * this._loadCount).reverse())
+      ...(this._getDays(lastDate, -1 * loadCount).reverse())
     )
 
     this._items = newItems
   }
 
-  append() {
+  append(loadCount = this._loadCount) {
     const lastDate = this._items[this._items.length - 1].date
 
     let newItems = this._items;
 
     if (newItems.length >= this._maxCount) {
-      newItems = newItems.slice(this._loadCount)
+      newItems = newItems.slice(loadCount)
     }
 
     newItems.push(
-      ...this._getDays(lastDate, this._loadCount)
+      ...this._getDays(lastDate, loadCount)
     )
 
     this._items = newItems

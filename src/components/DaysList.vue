@@ -3,7 +3,7 @@ import { nextTick, onMounted, reactive } from 'vue';
 import DaysList from './DaysList';
 import AppDate from '@/app/support/AppDate';
 
-const daysList = new DaysList(10)
+const daysList = new DaysList(10, 40)
 const today = new AppDate()
 
 const data = reactive({
@@ -34,11 +34,11 @@ function handleScroll(ev: Event) {
 function setItemsByScrollPosition(position: number, scrollHeight: number) {
   if (position > scrollHeight * 2 / 3) {
     daysList.append()
+    data.items = daysList.items
   } else if (position < scrollHeight * 1 / 3) {
     daysList.prepend()
+    data.items = daysList.items
   }
-
-  data.items = daysList.items
 }
 
 function reset() {
