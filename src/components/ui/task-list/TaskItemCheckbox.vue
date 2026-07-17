@@ -9,7 +9,7 @@ if (!ctx) throw new Error('TaskItem.Checkbox must be used inside TaskItem.Root')
 </script>
 
 <template>
-  <span class="shrink-0">
+  <span class="shrink-0" :class="ctx.disabled ? 'text-slate-400' : 'text-sky-500'">
     <IconCheckboxChecked v-if="ctx.task.done" />
     <IconCheckboxUnchecked v-else />
   </span>
