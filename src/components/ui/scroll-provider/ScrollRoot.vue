@@ -31,8 +31,8 @@ function onScroll() {
   <div class="relative h-screen h-[100dvh] w-full flex-1 overflow-hidden">
     <div
       :ref="setScrollEl"
-      class="h-full w-full overflow-y-auto overflow-x-hidden snap-y snap-mandatory scroll-smooth touch-pan-y"
-      style="scroll-snap-type: y mandatory; -webkit-overflow-scrolling: touch;"
+      class="h-full w-full overflow-y-auto overflow-x-hidden snap-y snap-proximity scroll-smooth touch-pan-y"
+      style="scroll-snap-type: y proximity; -webkit-overflow-scrolling: touch;"
       @scroll="onScroll"
     >
       <slot />

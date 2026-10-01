@@ -56,7 +56,7 @@ function handleToggle(day: DayItem, taskId: string) {
 </script>
 
 <template>
-  <div class="flex h-screen flex-col bg-white">
+  <div class="flex h-screen h-[100dvh] w-full flex-col bg-white overflow-hidden">
     <ScrollProvider>
       <ScrollRoot @scroll="onScroll">
         <DayCardRoot

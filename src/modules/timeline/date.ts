@@ -40,17 +40,24 @@ const SAMPLE_TASKS = [
 
 export function generateTasksForDay(date: PersianDate): Task[] {
   const seed = hashString(date.formatJalali())
-  // generate between 2 and 12 tasks depending on the day so some days have a long list
-  const count = (seed % 10) + 3
   const dayStart = date.getTime()
   const tasks: Task[] = []
+
+  // If today or tomorrow, guarantee 20 tasks so the user can immediately test long list behavior
+  let count: number
+  if (date.isToday()) {
+    count = 20
+  } else {
+    // Generate between 4 and 22 tasks depending on the day
+    count = (seed % 19) + 4
+  }
 
   for (let i = 0; i < count; i++) {
     const title = SAMPLE_TASKS[(seed + i * 5) % SAMPLE_TASKS.length]
     const done = date.isPast() ? ((seed >> (i + 1)) & 1) === 1 : false
     tasks.push({
       id: `${dayStart}-${i}`,
-      title,
+      title: `${title} (${i + 1})`,
       done,
     })
   }

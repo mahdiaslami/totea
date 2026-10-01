@@ -24,11 +24,11 @@ provide('daycard', {
 
 <template>
   <section
-    class="relative h-screen h-[100dvh] w-full flex-shrink-0 snap-start snap-always border-b border-slate-200/80 px-4 py-6 md:px-8 flex flex-col min-h-0 overflow-hidden"
+    class="relative min-h-screen min-h-[100dvh] w-full flex-shrink-0 snap-start border-b border-slate-200/80 px-4 py-8 md:px-8 flex flex-col justify-start overflow-visible touch-pan-y"
     :class="{ 'bg-sky-50/30': isToday }"
     :data-today="isToday"
   >
-    <div class="mx-auto flex h-full w-full max-w-2xl flex-col min-h-0">
+    <div class="mx-auto flex h-full w-full max-w-2xl flex-col">
       <slot />
     </div>
   </section>

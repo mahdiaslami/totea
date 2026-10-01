@@ -11,7 +11,7 @@ if (!ctx) throw new Error('TaskItem.Trigger must be used inside TaskItem.Root')
 <template>
   <button
     type="button"
-    class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-1 py-1.5 text-start transition-colors hover:bg-slate-100/70"
+    class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-start transition-colors hover:bg-slate-100/70 active:bg-slate-100 touch-pan-y"
     :class="{ 'cursor-not-allowed opacity-60 hover:bg-transparent': ctx.disabled }"
     :disabled="ctx.disabled"
     :aria-pressed="ctx.task.done"
