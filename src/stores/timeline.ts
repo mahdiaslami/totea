@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import type { DayItem, Task } from '../modules/timeline/date'
 import { PersianDate } from '../modules/timeline/PersianDate'
 
-const PAGE_SIZE = 15
+const PAGE_SIZE = 7
 
 const STORAGE_KEY = 'totea_tasks_v1'
 
@@ -28,6 +28,7 @@ function savePersistedTasks(tasksMap: Record<number, Task[]>) {
 export const useTimelineStore = defineStore('timeline', () => {
   const days = ref<DayItem[]>([])
   const todayIndex = ref(0)
+  const currentDayIndex = ref(0)
   const persistedTasks = ref<Record<number, Task[]>>(loadPersistedTasks())
 
   function getTasksForDate(date: PersianDate): Task[] {
@@ -48,6 +49,7 @@ export const useTimelineStore = defineStore('timeline', () => {
     }
     days.value = initial
     todayIndex.value = PAGE_SIZE
+    currentDayIndex.value = PAGE_SIZE
   }
 
   function appendFuture() {
@@ -75,7 +77,39 @@ export const useTimelineStore = defineStore('timeline', () => {
     }
     days.value = [...prev, ...days.value]
     todayIndex.value += PAGE_SIZE
+    currentDayIndex.value += PAGE_SIZE
   }
+
+  function nextDay() {
+    if (currentDayIndex.value < days.value.length - 1) {
+      currentDayIndex.value++
+      if (currentDayIndex.value >= days.value.length - 3) {
+        appendFuture()
+      }
+    } else {
+      appendFuture()
+      currentDayIndex.value++
+    }
+  }
+
+  function prevDay() {
+    if (currentDayIndex.value > 0) {
+      currentDayIndex.value--
+      if (currentDayIndex.value <= 3) {
+        prependPast()
+      }
+    } else {
+      prependPast()
+      currentDayIndex.value = Math.max(0, currentDayIndex.value - 1)
+    }
+  }
+
+  function goToToday() {
+    currentDayIndex.value = todayIndex.value
+  }
+
+  const currentDay = computed<DayItem | undefined>(() => days.value[currentDayIndex.value])
+  const isViewingToday = computed(() => currentDayIndex.value === todayIndex.value)
 
   function toggleTask(day: DayItem, taskId: string) {
     const target = days.value.find((d) => d.date.getTime() === day.date.getTime())
@@ -131,8 +165,14 @@ export const useTimelineStore = defineStore('timeline', () => {
     days,
     today,
     todayIndex,
+    currentDayIndex,
+    currentDay,
+    isViewingToday,
     appendFuture,
     prependPast,
+    nextDay,
+    prevDay,
+    goToToday,
     toggleTask,
     addTask,
     deleteTask,

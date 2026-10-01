@@ -47,15 +47,17 @@ function onTouchMove(e: TouchEvent) {
     }
   }
 
+  // Only intercept if swiping to the left (negative deltaX) for delete action
+  // If moving right (deltaX > 0), do not preventDefault and do not move offsetX,
+  // allowing the parent horizontal timeline scroll to handle it naturally!
   if (isHorizontalGesture) {
-    // Left swipe creates negative deltaX
-    // Prevent default scroll when swiping horizontally
-    if (e.cancelable) e.preventDefault()
     if (deltaX < 0) {
-      // Swiping to the left
+      // Swiping to the left - reveal delete button
+      if (e.cancelable) e.preventDefault()
       offsetX.value = Math.max(deltaX, -100)
     } else {
-      offsetX.value = Math.min(deltaX * 0.2, 20)
+      // Swiping to the right is for timeline day navigation
+      offsetX.value = 0
     }
   }
 }
@@ -132,7 +134,7 @@ provide('taskitem', {
 </script>
 
 <template>
-  <li class="relative overflow-hidden rounded-xl">
+  <li data-task-item="true" class="relative overflow-hidden rounded-xl">
     <!-- Red background reveal on left swipe -->
     <div
       class="absolute inset-y-0 right-0 left-0 flex items-center justify-end rounded-xl bg-rose-500 px-4 text-white transition-opacity"
