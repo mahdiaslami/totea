@@ -78,8 +78,30 @@ export class PersianDate {
     return PersianDate.isSameDay(this, PersianDate.today())
   }
 
+  isTomorrow(): boolean {
+    const tomorrow = PersianDate.addDays(PersianDate.today(), 1)
+    return PersianDate.isSameDay(this, tomorrow)
+  }
+
   isPast(): boolean {
     return PersianDate.startOfDay(this).getTime() < PersianDate.startOfDay(PersianDate.today()).getTime()
+  }
+
+  getRelativeLabel(): string {
+    if (this.isToday()) return 'امروز'
+    if (this.isTomorrow()) return 'فردا'
+
+    const todayStart = PersianDate.startOfDay(PersianDate.today()).getTime()
+    const thisStart = PersianDate.startOfDay(this).getTime()
+    const diffDays = Math.round((thisStart - todayStart) / (1000 * 60 * 60 * 24))
+
+    if (diffDays > 1) {
+      return `${toPersianDigits(diffDays)} روز آینده`
+    }
+    if (diffDays < 0) {
+      return `${toPersianDigits(Math.abs(diffDays))} روز قبل`
+    }
+    return ''
   }
 
   toJalali(): JalaliParts {

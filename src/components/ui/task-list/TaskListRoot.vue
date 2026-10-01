@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DayItem } from '@/modules/timeline/date'
 import { provide, toValue, type MaybeRefOrGetter } from 'vue'
+import sleepingCharacterImg from '@/assets/images/sleeping_character_01.png'
 
 export interface TaskListContext {
   day: DayItem
@@ -25,5 +26,12 @@ provide('tasklist', {
   <ul v-if="day.tasks.length" class="space-y-0.5">
     <slot />
   </ul>
-  <p v-else class="text-sm text-slate-400 mt-2">هیچ کاری برای انجام نیست</p>
+  <div v-else class="flex flex-col items-center justify-center py-4 select-none">
+    <img
+      :src="sleepingCharacterImg"
+      alt="روز آرام و بدون کار"
+      class="w-36 sm:w-44 h-auto object-contain drop-shadow-sm opacity-95 transition-transform hover:scale-105 duration-300"
+      loading="lazy"
+    />
+  </div>
 </template>

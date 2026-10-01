@@ -1,0 +1,126 @@
+name: Build & Sign Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    name: Build & Sign Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Java JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Node Dependencies
+        run: npm ci
+
+      - name: Build Web Application
+        run: npm run build
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
+      - name: Grant Execute Permission for Gradle Wrapper
+        run: chmod +x android/gradlew
+
+      - name: Build Release APK with Gradle
+        run: |
+          cd android
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      # Check if GitHub Secrets are provided for custom keystore
+      - name: Check for Custom Signing Secrets
+        id: check_secrets
+        run: |
+          if [ -n "${{ secrets.SIGNING_KEY }}" ] && [ -n "${{ secrets.KEYSTORE_PASSWORD }}" ] && [ -n "${{ secrets.KEY_ALIAS }}" ]; then
+            echo "has_custom_keystore=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_custom_keystore=false" >> $GITHUB_OUTPUT
+          fi
+
+      # 1. Custom Signing Path (if user configured GitHub Secrets)
+      - name: Decode Custom Keystore (if provided)
+        if: steps.check_secrets.outputs.has_custom_keystore == 'true'
+        run: |
+          echo "${{ secrets.SIGNING_KEY }}" | base64 -d > release.keystore
+
+      # 2. Automated Production-Ready Keystore Generation (if secrets not yet set)
+      - name: Generate High-Security RSA-4096 Release Keystore (Fallback)
+        if: steps.check_secrets.outputs.has_custom_keystore == 'false'
+        run: |
+          keytool -genkeypair -v \
+            -keystore release.keystore \
+            -alias totea \
+            -keyalg RSA \
+            -keysize 4096 \
+            -validity 10000 \
+            -storepass "totea_secure_storepass_2026" \
+            -keypass "totea_secure_storepass_2026" \
+            -dname "CN=Totea, OU=Mobile, O=Totea, L=Tehran, ST=Tehran, C=IR"
+
+      # Sign with apksigner (V1, V2, V3, V4 signature schemes for full compatibility across all Android versions)
+      - name: Sign & Align Release APK
+        run: |
+          # Find Android SDK Build Tools
+          BUILD_TOOLS_DIR=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -n 1)
+          echo "Using Android Build Tools: $BUILD_TOOLS_DIR"
+
+          UNSIGNED_APK=$(find android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          echo "Found APK: $UNSIGNED_APK"
+
+          # 4-byte alignment with zipalign (required before apksigner)
+          $BUILD_TOOLS_DIR/zipalign -v -p 4 "$UNSIGNED_APK" totea-aligned.apk
+
+          KEY_PASS="totea_secure_storepass_2026"
+          KEY_ALIAS="totea"
+          if [ "${{ steps.check_secrets.outputs.has_custom_keystore }}" = "true" ]; then
+            KEY_PASS="${{ secrets.KEYSTORE_PASSWORD }}"
+            KEY_ALIAS="${{ secrets.KEY_ALIAS }}"
+          fi
+
+          # Sign with apksigner with SHA256withRSA, V1, V2, V3 signature schemes
+          $BUILD_TOOLS_DIR/apksigner sign \
+            --ks release.keystore \
+            --ks-pass "pass:$KEY_PASS" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --key-pass "pass:$KEY_PASS" \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --v4-signing-enabled false \
+            --out totea-release.apk \
+            totea-aligned.apk
+
+          # Verify signature
+          $BUILD_TOOLS_DIR/apksigner verify --verbose totea-release.apk
+
+      - name: Upload Signed Release APK to Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: totea-release-apk
+          path: totea-release.apk
+          if-no-files-found: error
+          retention-days: 30

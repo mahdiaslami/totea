@@ -1,0 +1,9 @@
+{
+	"appId": "com.totea.app",
+	"appName": "توتیا",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https"
+	},
+	"android": {}
+}

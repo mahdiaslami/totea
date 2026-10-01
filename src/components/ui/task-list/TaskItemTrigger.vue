@@ -6,6 +6,11 @@ import TaskItemLabel from './TaskItemLabel.vue'
 
 const ctx = inject('taskitem') as TaskItemContext | undefined
 if (!ctx) throw new Error('TaskItem.Trigger must be used inside TaskItem.Root')
+
+function handleClick() {
+  if (ctx?.disabled) return
+  ctx?.toggle(ctx.task.id)
+}
 </script>
 
 <template>
@@ -15,7 +20,7 @@ if (!ctx) throw new Error('TaskItem.Trigger must be used inside TaskItem.Root')
     :class="{ 'cursor-not-allowed opacity-60 hover:bg-transparent': ctx.disabled }"
     :disabled="ctx.disabled"
     :aria-pressed="ctx.task.done"
-    @click="ctx.toggle(ctx.task.id)"
+    @click="handleClick"
   >
     <slot>
       <TaskItemCheckbox />
