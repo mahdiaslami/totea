@@ -1,0 +1,5 @@
+export { default as TaskListRoot } from './TaskListRoot.vue'
+export { default as TaskItemRoot } from './TaskItemRoot.vue'
+export { default as TaskItemTrigger } from './TaskItemTrigger.vue'
+export { default as TaskItemCheckbox } from './TaskItemCheckbox.vue'
+export { default as TaskItemLabel } from './TaskItemLabel.vue'

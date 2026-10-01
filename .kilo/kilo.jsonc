@@ -1,0 +1,12 @@
+{
+  "$schema": "https://app.kilo.ai/config.json",
+  "skills": {
+    "paths": [
+      "./.kilo/skills"
+    ]
+  },
+  "instructions": [
+    "./.kilo/rules/ARCHITECTURE.md"
+  ],
+  "snapshot": false
+}
