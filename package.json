@@ -11,9 +11,9 @@
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
     "lint": "eslint . --fix",
-    "cap:sync": "cap sync",
-    "cap:copy": "cap copy",
-    "cap:build": "npm run build && cap sync"
+    "cap:sync": "cap sync android",
+    "cap:copy": "cap copy android",
+    "cap:build": "npm run build && cap sync android"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",
