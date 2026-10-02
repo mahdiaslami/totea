@@ -27,6 +27,9 @@ body,
 #app {
   height: 100%;
   overflow: hidden;
+  -webkit-touch-callout: none; /* Disable default Chrome/Safari long-press popups/vibrations */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 @supports (height: 100dvh) {

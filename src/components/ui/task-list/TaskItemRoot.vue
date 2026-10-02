@@ -30,7 +30,7 @@ const emit = defineEmits<{
   (e: 'long-press', task: Task): void
 }>()
 
-// Long-press detection (500ms)
+// Long-press detection (400ms: slightly earlier than Chrome's 500-600ms text-selection timer)
 let longPressTimer: ReturnType<typeof setTimeout> | null = null
 let touchStartX = 0
 let touchStartY = 0
@@ -42,16 +42,8 @@ function startLongPress() {
   if (longPressTimer) clearTimeout(longPressTimer)
   longPressTimer = setTimeout(() => {
     didTriggerLongPress = true
-    // Haptic vibration feedback if available on mobile
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      try {
-        navigator.vibrate(40)
-      } catch {
-        // ignore
-      }
-    }
     emit('long-press', props.task)
-  }, 500)
+  }, 400)
 }
 
 function clearLongPress() {
@@ -104,6 +96,11 @@ function onMouseDown(e: MouseEvent) {
   window.addEventListener('mouseup', onMouseUp)
 }
 
+function handleContextMenu(e: MouseEvent) {
+  // Prevent Chrome from triggering default contextmenu or text selection gesture
+  e.preventDefault()
+}
+
 function handleItemClick() {
   if (didTriggerLongPress) {
     didTriggerLongPress = false
@@ -137,6 +134,7 @@ provide('taskitem', {
   <li
     data-task-item="true"
     class="relative overflow-hidden rounded-xl transition-all duration-200 select-none cursor-pointer"
+    style="-webkit-touch-callout: none; -webkit-user-select: none; user-select: none;"
     :class="[
       isSelected
         ? 'ring-2 ring-sky-500 bg-sky-50/90 shadow-md scale-[1.01]'
@@ -147,10 +145,12 @@ provide('taskitem', {
     @touchend="onTouchEnd"
     @touchcancel="onTouchEnd"
     @mousedown="onMouseDown"
+    @contextmenu="handleContextMenu"
   >
-    <!-- Foreground Content (Swipe-to-delete completely removed, now with tap & long-press) -->
+    <!-- Foreground Content -->
     <div
       class="relative w-full transition-colors select-none"
+      style="-webkit-touch-callout: none; -webkit-user-select: none; user-select: none;"
       @click="handleItemClick"
     >
       <slot />
