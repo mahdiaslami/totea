@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DayItem } from '@/modules/timeline/date'
 import type { Task } from '@/modules/timeline/date'
+import texturePatternImg from '@/assets/images/Texture-01-xs.png'
 import {
   TaskListRoot,
   TaskItemRoot,
@@ -25,7 +26,7 @@ const emit = defineEmits<{
 <template>
   <div class="flex h-full w-full flex-col overflow-hidden bg-white select-none">
     <!-- Day Header -->
-    <header class="flex-shrink-0 border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur-md">
+    <header class="flex-shrink-0 border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur-md z-10">
       <div class="mx-auto flex max-w-2xl items-center justify-between gap-3">
         <!-- Date Info & Badge -->
         <div class="flex items-center gap-2.5">
@@ -101,12 +102,22 @@ const emit = defineEmits<{
       </div>
     </header>
 
-    <!-- Scrollable Task List (Vertical Scroll per Day, with horizontal swipe allowed) -->
+    <!-- Scrollable Task List Area with soft light-blue background and repeated texture pattern -->
     <main
-      class="flex-1 overflow-y-auto px-4 py-5 md:px-8"
+      class="relative flex-1 overflow-y-auto px-4 py-5 md:px-8 bg-sky-50/40"
       style="-webkit-overflow-scrolling: touch; touch-action: pan-x pan-y;"
     >
-      <div class="mx-auto max-w-2xl">
+      <!-- Repeating Texture Overlay -->
+      <div
+        class="pointer-events-none absolute inset-0 opacity-25"
+        :style="{
+          backgroundImage: `url(${texturePatternImg})`,
+          backgroundRepeat: 'repeat',
+          backgroundSize: 'auto'
+        }"
+      />
+
+      <div class="relative mx-auto flex h-full min-h-full max-w-2xl flex-col">
         <TaskListRoot
           :day="day"
           :past="day.date.isPast()"

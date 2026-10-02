@@ -134,7 +134,7 @@ provide('taskitem', {
 </script>
 
 <template>
-  <li data-task-item="true" class="relative overflow-hidden rounded-xl">
+  <li data-task-item="true" class="relative overflow-hidden rounded-xl shadow-xs border border-slate-100/80">
     <!-- Red background reveal on left swipe -->
     <div
       class="absolute inset-y-0 right-0 left-0 flex items-center justify-end rounded-xl bg-rose-500 px-4 text-white transition-opacity"
