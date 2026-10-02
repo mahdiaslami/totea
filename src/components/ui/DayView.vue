@@ -25,8 +25,8 @@ const emit = defineEmits<{
 
 <template>
   <div class="flex h-full w-full flex-col overflow-hidden bg-white select-none">
-    <!-- Day Header -->
-    <header class="flex-shrink-0 border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur-md z-10">
+    <!-- Day Header with soft elevation shadow over the task content below -->
+    <header class="relative z-20 flex-shrink-0 border-b border-slate-100/80 bg-white/95 px-5 py-4 backdrop-blur-md shadow-sm shadow-slate-900/5">
       <div class="mx-auto flex max-w-2xl items-center justify-between gap-3">
         <!-- Date Info & Badge -->
         <div class="flex items-center gap-2.5">
@@ -102,14 +102,14 @@ const emit = defineEmits<{
       </div>
     </header>
 
-    <!-- Scrollable Task List Area with soft light-blue background and repeated texture pattern -->
+    <!-- Scrollable Task List Area with deeper rich blue diagonal gradient and softer repeating texture -->
     <main
-      class="relative flex-1 overflow-y-auto px-4 py-5 md:px-8 bg-sky-50/40"
+      class="relative z-10 flex-1 overflow-y-auto px-4 py-5 md:px-8 bg-gradient-to-br from-sky-100/90 via-sky-200/60 to-blue-200/70"
       style="-webkit-overflow-scrolling: touch; touch-action: pan-x pan-y;"
     >
-      <!-- Repeating Texture Overlay -->
+      <!-- Repeating Texture Overlay (subtle, faint, and soft) -->
       <div
-        class="pointer-events-none absolute inset-0 opacity-25"
+        class="pointer-events-none absolute inset-0 opacity-[0.055] mix-blend-multiply"
         :style="{
           backgroundImage: `url(${texturePatternImg})`,
           backgroundRepeat: 'repeat',

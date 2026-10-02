@@ -16,7 +16,7 @@ function handleClick() {
 <template>
   <button
     type="button"
-    class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-start bg-transparent outline-none focus:outline-none focus:ring-0 active:bg-transparent touch-pan-y"
+    class="flex w-full cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5 text-start bg-transparent outline-none focus:outline-none focus:ring-0 active:bg-transparent touch-pan-y"
     style="-webkit-tap-highlight-color: transparent;"
     :class="{ 'cursor-not-allowed opacity-60': ctx.disabled }"
     :disabled="ctx.disabled"

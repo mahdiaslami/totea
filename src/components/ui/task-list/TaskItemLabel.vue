@@ -8,7 +8,7 @@ if (!ctx) throw new Error('TaskItem.Label must be used inside TaskItem.Root')
 
 <template>
   <span
-    class="text-sm break-words"
+    class="text-sm leading-6 break-words flex-1"
     :class="{
       'text-slate-400 line-through': ctx.task.done,
       'text-slate-700': !ctx.task.done,
