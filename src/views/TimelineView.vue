@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useTimelineStore } from '../stores/timeline'
 import type { PersianDate } from '../modules/timeline/PersianDate'
@@ -125,6 +125,18 @@ function openAddTask(date: PersianDate) {
   isSheetOpen.value = true
 }
 
+// دکمه‌ی شناور افزودن کار همیشه به روزِ در حال مشاهده اشاره دارد
+const canAddTask = computed(() => {
+  const day = days.value[activeDayIndex.value]
+  return !!day && !day.date.isPast()
+})
+
+function handleAddTask() {
+  const day = days.value[activeDayIndex.value]
+  if (!day) return
+  openAddTask(day.date)
+}
+
 function handleCreateTask(title: string) {
   if (!selectedTargetDate.value) return
   store.addTask(selectedTargetDate.value, title)
@@ -158,7 +170,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="relative h-screen h-[100dvh] w-full flex-col bg-white overflow-hidden select-none">
+  <div class="relative flex h-full w-full flex-col bg-white overflow-hidden select-none">
     <!-- Horizontal Snap Scroll Container in RTL order:
          - روزهای گذشته در سمت راست (سمت شروع خواندن فارسی)
          - روزهای آینده در سمت چپ (با اسکرول به سمت چپ، فردا و پس‌فردا نمایان می‌شوند)
@@ -167,7 +179,7 @@ onMounted(() => {
       ref="scrollContainer"
       dir="rtl"
       :class="[
-        'flex h-full w-full flex-row overflow-x-auto overflow-y-hidden snap-x snap-mandatory touch-pan-x transition-opacity duration-150',
+        'flex h-full min-h-0 w-full flex-row overflow-x-auto overflow-y-hidden snap-x snap-mandatory touch-pan-x transition-opacity duration-150',
         isInitialPositionSet ? 'opacity-100 scroll-smooth' : 'opacity-0'
       ]"
       style="-webkit-overflow-scrolling: touch; scroll-snap-type: x mandatory;"
@@ -184,7 +196,6 @@ onMounted(() => {
           :day="day"
           @toggle="(taskId: string) => handleToggle(day, taskId)"
           @request-delete="(t: Task) => handleRequestDelete(day, t)"
-          @add-task="openAddTask(day.date)"
           @next-day="goToNextDay"
           @prev-day="goToPrevDay"
         />
@@ -203,15 +214,31 @@ onMounted(() => {
       <button
         v-if="!isViewingToday && isInitialPositionSet"
         type="button"
-        class="pointer-events-auto fixed bottom-6 left-6 z-40 flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-sky-600/30 transition-all hover:bg-sky-700 hover:shadow-xl active:scale-95 cursor-pointer"
+        class="pointer-events-auto fixed bottom-6 left-6 z-40 flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-sky-600/30 transition-all hover:bg-sky-700 hover:shadow-xl active:scale-95 cursor-pointer"
         @click="goToToday"
       >
-        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <!-- Undo-style horizontal U-turn arrow (RTL: heads back to the right) -->
+          <path stroke-linecap="round" stroke-linejoin="round" d="M18 6H11a5 5 0 0 0 0 10h7M15 13l3 3-3 3" />
         </svg>
         <span>برگشت به امروز</span>
       </button>
     </Transition>
+
+    <!-- Floating 'Add Task' Button — fixed at bottom-right, never moves with horizontal scroll -->
+    <button
+      type="button"
+      class="pointer-events-auto fixed bottom-6 right-6 z-40 inline-flex items-center gap-1.5 rounded-full bg-sky-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-sky-600/30 transition-all hover:bg-sky-700 hover:shadow-xl active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none disabled:hover:bg-sky-600"
+      :disabled="!canAddTask"
+      :title="canAddTask ? 'افزودن کار' : 'برای روزهای گذشته نمی‌توان کار افزود'"
+      aria-label="افزودن کار"
+      @click="handleAddTask"
+    >
+      <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+      </svg>
+      <span>افزودن کار</span>
+    </button>
 
     <!-- Bottom Sheet for Adding New Task -->
     <AddTaskSheet

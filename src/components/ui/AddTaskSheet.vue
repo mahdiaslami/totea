@@ -15,23 +15,39 @@ const emit = defineEmits<{
 const taskInput = ref('')
 const inputRef = ref<HTMLInputElement | null>(null)
 
+// وقتی کیبورد باز میشود مرورگر برای نشان دادن اینپوت فوکوس‌شده سند را
+// اسکرول میکند. اپ روی viewport قفل است، پس هر اسکرولِ سند غلط است و
+// زبونه را از دید خارج میکند — تا زمانی که باز است، سند را روی صفر نگه می‌داریم.
+function pinViewport() {
+  if (window.scrollY > 0 || document.documentElement.scrollTop > 0 || document.body.scrollTop > 0) {
+    window.scrollTo(0, 0)
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+  }
+}
+
 watch(
   () => props.modelValue,
   (isOpen) => {
     if (isOpen) {
       taskInput.value = ''
       document.body.style.overflow = 'hidden'
+      window.addEventListener('scroll', pinViewport, { passive: true })
+      pinViewport()
       nextTick(() => {
-        inputRef.value?.focus()
+        // preventScroll: فوکوس خودکار نباید سند یا زبونه را جابجا کند
+        inputRef.value?.focus({ preventScroll: true })
       })
     } else {
       document.body.style.overflow = ''
+      window.removeEventListener('scroll', pinViewport)
     }
   }
 )
 
 onUnmounted(() => {
   document.body.style.overflow = ''
+  window.removeEventListener('scroll', pinViewport)
 })
 
 function close() {

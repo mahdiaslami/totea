@@ -17,3 +17,22 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(100, 116, 139, 0.6);
 }
+
+/* The app fills the viewport and owns its own scrolling:
+   the document itself never scrolls, each day's task list scrolls
+   inside its own container. `dvh` keeps the height in sync with the
+   visible viewport as mobile browser chrome collapses/expands. */
+html,
+body,
+#app {
+  height: 100%;
+  overflow: hidden;
+}
+
+@supports (height: 100dvh) {
+  html,
+  body,
+  #app {
+    height: 100dvh;
+  }
+}

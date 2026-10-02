@@ -17,7 +17,6 @@ defineProps<{
 const emit = defineEmits<{
   (e: 'toggle', taskId: string): void
   (e: 'request-delete', task: Task): void
-  (e: 'add-task'): void
   (e: 'next-day'): void
   (e: 'prev-day'): void
 }>()
@@ -73,20 +72,8 @@ const emit = defineEmits<{
           </div>
         </div>
 
-        <!-- Add Task Action Button & Next Day Arrow -->
+        <!-- Next Day Arrow -->
         <div class="flex items-center gap-2">
-          <button
-            v-if="!day.date.isPast()"
-            type="button"
-            class="inline-flex items-center gap-1.5 rounded-full bg-sky-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm shadow-sky-600/20 transition-all hover:bg-sky-700 active:scale-95 cursor-pointer"
-            @click="emit('add-task')"
-          >
-            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            <span>افزودن کار</span>
-          </button>
-
           <button
             type="button"
             class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-slate-200 active:scale-95 cursor-pointer"
@@ -104,7 +91,7 @@ const emit = defineEmits<{
 
     <!-- Scrollable Task List Area with deeper rich blue diagonal gradient and softer repeating texture -->
     <main
-      class="relative z-10 flex-1 overflow-y-auto px-4 py-5 md:px-8 bg-gradient-to-br from-sky-100/90 via-sky-200/60 to-blue-200/70"
+      class="relative z-10 flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 py-5 md:px-8 bg-gradient-to-br from-sky-100/90 via-sky-200/60 to-blue-200/70"
       style="-webkit-overflow-scrolling: touch; touch-action: pan-x pan-y;"
     >
       <!-- Repeating Texture Overlay (subtle, faint, and soft) -->

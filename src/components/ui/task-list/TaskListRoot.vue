@@ -35,7 +35,9 @@ provide('tasklist', {
         class="w-52 sm:w-64 md:w-72 h-auto object-contain drop-shadow-md opacity-95 transition-transform hover:scale-105 duration-300 pointer-events-none"
         loading="lazy"
       />
-      <p class="mt-4 text-sm font-medium text-slate-400">
+      <p
+        class="mt-4 inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-500 shadow-sm"
+      >
         کاری برای این روز ثبت نشده است
       </p>
     </div>
