@@ -35,11 +35,21 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # Install exact Android SDK Platforms and Build-Tools without deprecated packages
-      - name: Install Android SDK Packages & Accept Licenses
+      # Configure Android SDK Path & Accept Licenses
+      - name: Configure Android SDK & Accept Licenses
         run: |
-          yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          sdkmanager --install "platforms;android-36" "build-tools;36.0.0" "cmdline-tools;latest"
+          # Locate sdkmanager in Android SDK
+          SDKMANAGER=$(find $ANDROID_HOME/cmdline-tools -name sdkmanager -type f 2>/dev/null | head -n 1)
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$ANDROID_HOME/tools/bin/sdkmanager"
+          fi
+          echo "Using sdkmanager: $SDKMANAGER"
+
+          # Accept all Android licenses automatically
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+
+          # Install Platform 36 and Build-Tools 36 if not present
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" || true
 
       - name: Install Node Dependencies
         run: npm ci
