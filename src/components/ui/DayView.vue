@@ -10,16 +10,29 @@ import {
   TaskItemLabel,
 } from '@/components/ui/task-list/index.ts'
 
-defineProps<{
-  day: DayItem
-}>()
+const props = withDefaults(
+  defineProps<{
+    day: DayItem
+    isSelectionMode?: boolean
+    selectedTaskIds?: string[]
+  }>(),
+  {
+    isSelectionMode: false,
+    selectedTaskIds: () => [],
+  }
+)
 
 const emit = defineEmits<{
   (e: 'toggle', taskId: string): void
-  (e: 'request-delete', task: Task): void
+  (e: 'select-task', task: Task): void
+  (e: 'long-press-task', task: Task): void
   (e: 'next-day'): void
   (e: 'prev-day'): void
 }>()
+
+function isTaskSelected(taskId: string) {
+  return props.selectedTaskIds.includes(taskId)
+}
 </script>
 
 <template>
@@ -31,9 +44,10 @@ const emit = defineEmits<{
         <div class="flex items-center gap-2.5">
           <button
             type="button"
-            class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-slate-200 active:scale-95 cursor-pointer"
+            class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-slate-200 active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-slate-100"
+            :disabled="isSelectionMode"
             aria-label="روز قبل"
-            @click="emit('prev-day')"
+            @click="!isSelectionMode && emit('prev-day')"
           >
             <!-- In Persian RTL: arrow pointing right goes to past / previous day -->
             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -76,9 +90,10 @@ const emit = defineEmits<{
         <div class="flex items-center gap-2">
           <button
             type="button"
-            class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-slate-200 active:scale-95 cursor-pointer"
+            class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-slate-200 active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-slate-100"
+            :disabled="isSelectionMode"
             aria-label="روز بعد"
-            @click="emit('next-day')"
+            @click="!isSelectionMode && emit('next-day')"
           >
             <!-- In Persian RTL: arrow pointing left goes to future / next day -->
             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -91,7 +106,7 @@ const emit = defineEmits<{
 
     <!-- Scrollable Task List Area with deeper rich blue diagonal gradient and softer repeating texture -->
     <main
-      class="relative z-10 flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 py-5 md:px-8 bg-gradient-to-br from-sky-100/90 via-sky-200/60 to-blue-200/70"
+      class="relative z-10 flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 py-5 pb-24 md:px-8 bg-gradient-to-br from-sky-100/90 via-sky-200/60 to-blue-200/70"
       style="-webkit-overflow-scrolling: touch; touch-action: pan-x pan-y;"
     >
       <!-- Repeating Texture Overlay (subtle, faint, and soft) -->
@@ -115,8 +130,11 @@ const emit = defineEmits<{
             :key="task.id"
             :task="task"
             :disabled="day.date.isPast()"
+            :is-selected="isTaskSelected(task.id)"
+            :is-selection-mode="isSelectionMode"
             @toggle="(taskId: string) => emit('toggle', taskId)"
-            @request-delete="(t: Task) => emit('request-delete', t)"
+            @select="(t: Task) => emit('select-task', t)"
+            @long-press="(t: Task) => emit('long-press-task', t)"
           >
             <TaskItemTrigger>
               <TaskItemCheckbox />

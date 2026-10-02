@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { watch, onUnmounted } from 'vue'
 
-const props = defineProps<{
-  modelValue: boolean
-  title?: string
-  taskTitle?: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean
+    title?: string
+    count?: number
+    taskTitle?: string
+  }>(),
+  {
+    count: 1,
+    title: '',
+    taskTitle: '',
+  }
+)
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
@@ -74,15 +82,20 @@ function onConfirm() {
           </div>
 
           <h3 class="text-base font-bold text-slate-800">
-            {{ title || 'حذف کار' }}
+            {{ title || (count > 1 ? `حذف ${count} کار انتخاب‌شده` : 'حذف کار') }}
           </h3>
 
           <p class="mt-2 text-sm text-slate-500 leading-relaxed">
-            آیا از حذف این کار اطمینان دارید؟
+            <template v-if="count > 1">
+              آیا از حذف این {{ count }} کار اطمینان دارید؟ این عملیات قابل بازگشت نیست.
+            </template>
+            <template v-else>
+              آیا از حذف این کار اطمینان دارید؟ این عملیات قابل بازگشت نیست.
+            </template>
           </p>
 
           <p
-            v-if="taskTitle"
+            v-if="count === 1 && taskTitle"
             class="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 line-clamp-2 border border-slate-100"
           >
             «{{ taskTitle }}»
@@ -92,14 +105,14 @@ function onConfirm() {
           <div class="mt-6 flex items-center gap-3">
             <button
               type="button"
-              class="flex-1 rounded-2xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-rose-600/20 transition hover:bg-rose-700 active:scale-95"
+              class="flex-1 rounded-2xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-rose-600/20 transition hover:bg-rose-700 active:scale-95 cursor-pointer"
               @click="onConfirm"
             >
               بله، حذف شود
             </button>
             <button
               type="button"
-              class="flex-1 rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 active:scale-95 transition"
+              class="flex-1 rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 active:scale-95 transition cursor-pointer"
               @click="onCancel"
             >
               انصراف

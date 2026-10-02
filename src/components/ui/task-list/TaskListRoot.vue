@@ -23,7 +23,8 @@ provide('tasklist', {
 </script>
 
 <template>
-  <ul v-if="day.tasks.length" class="space-y-1">
+  <!-- pb-28 ensures the last task is never covered by floating action buttons or the selection toolbar -->
+  <ul v-if="day.tasks.length" class="space-y-2.5 pb-28">
     <slot />
   </ul>
   <!-- When there are no tasks: center the sleeping character vertically & horizontally and make it larger -->

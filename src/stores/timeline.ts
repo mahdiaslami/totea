@@ -146,13 +146,19 @@ export const useTimelineStore = defineStore('timeline', () => {
   }
 
   function deleteTask(day: DayItem, taskId: string) {
+    deleteMultipleTasks(day, [taskId])
+  }
+
+  function deleteMultipleTasks(day: DayItem, taskIds: string[]) {
+    if (!taskIds.length) return
+    const idSet = new Set(taskIds)
     const timeKey = PersianDate.startOfDay(day.date).getTime()
     const target = days.value.find((d) => d.date.getTime() === timeKey)
     if (target) {
-      target.tasks = target.tasks.filter((t) => t.id !== taskId)
+      target.tasks = target.tasks.filter((t) => !idSet.has(t.id))
     }
     if (persistedTasks.value[timeKey]) {
-      persistedTasks.value[timeKey] = persistedTasks.value[timeKey].filter((t) => t.id !== taskId)
+      persistedTasks.value[timeKey] = persistedTasks.value[timeKey].filter((t) => !idSet.has(t.id))
       savePersistedTasks(persistedTasks.value)
     }
   }
@@ -176,5 +182,6 @@ export const useTimelineStore = defineStore('timeline', () => {
     toggleTask,
     addTask,
     deleteTask,
+    deleteMultipleTasks,
   }
 })
