@@ -13,7 +13,7 @@ const emit = defineEmits<{
 
 <template>
   <div
-    class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center gap-2 select-none"
+    class="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2 select-none"
     role="region"
     aria-label="ابزارهای مدیریت کارهای انتخاب‌شده"
   >

@@ -159,4 +159,9 @@ export class PersianDate {
     const j = this.toJalali()
     return toPersianDigits(`${j.day} ${MONTHS_FA[j.month - 1]} ${j.year}`)
   }
+
+  formatMonthYear(): string {
+    const j = this.toJalali()
+    return toPersianDigits(`${MONTHS_FA[j.month - 1]} ${j.year}`)
+  }
 }

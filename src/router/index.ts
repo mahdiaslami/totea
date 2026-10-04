@@ -6,8 +6,35 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'home',
+      name: 'timeline',
       component: TimelineView,
+      meta: { index: 0, title: 'روزها' },
+    },
+    {
+      path: '/days',
+      redirect: '/',
+    },
+    {
+      path: '/calendar',
+      name: 'calendar',
+      component: () => import('../views/CalendarView.vue'),
+      meta: { index: 1, title: 'تقویم' },
+    },
+    {
+      path: '/goals',
+      name: 'goals',
+      component: () => import('../views/GoalsView.vue'),
+      meta: { index: 2, title: 'اهداف' },
+    },
+    {
+      path: '/settings',
+      name: 'settings',
+      component: () => import('../views/SettingsView.vue'),
+      meta: { index: 3, title: 'تنظیمات' },
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      redirect: '/',
     },
   ],
 })

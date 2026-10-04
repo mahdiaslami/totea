@@ -1,0 +1,157 @@
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { PersianDate, toPersianDigits } from '@/modules/timeline/PersianDate'
+
+defineOptions({
+  name: 'CalendarView',
+})
+
+const today = PersianDate.today()
+const currentMonthName = computed(() => today.formatMonthYear())
+
+// Generate simple calendar days for the current preview month
+const daysInMonth = 30 // standard preview month size
+const currentDayNumber = Number(today.value.getDate()) % 30 || 15
+
+const isNotified = ref(false)
+
+function handleNotify() {
+  isNotified.value = !isNotified.value
+}
+</script>
+
+<template>
+  <div class="flex h-full w-full flex-col overflow-y-auto bg-slate-50 select-none pb-8" dir="rtl">
+    <!-- Top Header -->
+    <header class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 px-5 py-4 backdrop-blur-md shadow-xs">
+      <div class="mx-auto flex max-w-xl items-center justify-between">
+        <div>
+          <h1 class="text-xl font-bold text-slate-800">تقویم</h1>
+          <p class="text-xs text-slate-400 mt-0.5">نمای رویدادها، ماه و تعطیلات رسمی</p>
+        </div>
+        <div class="flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 border border-amber-200/80">
+          <span class="inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+          <span>در دست ساخت</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="mx-auto w-full max-w-xl flex-1 px-4 py-6 space-y-6">
+      <!-- Under Construction Hero Banner -->
+      <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-500 via-amber-600 to-amber-700 p-6 text-white shadow-lg shadow-amber-500/20">
+        <div class="relative z-10">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md">
+              <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div>
+              <span class="inline-block rounded-full bg-white/25 px-2.5 py-0.5 text-[11px] font-bold">
+                نسخه پیش‌رو
+              </span>
+              <h2 class="text-lg font-bold mt-0.5">تقویم شمسی توتیا</h2>
+            </div>
+          </div>
+          <p class="text-sm text-amber-100 leading-relaxed">
+            این بخش هم‌اکنون در مرحله توسعه و طراحی است. به‌زودی قابلیت مشاهده تقویم ماهانه، رویدادها و تعطیلات رسمی به این بخش افزوده خواهد شد.
+          </p>
+
+          <div class="mt-4 flex items-center justify-between pt-2 border-t border-white/20">
+            <button
+              type="button"
+              class="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-xs font-bold text-amber-900 shadow-sm transition hover:bg-amber-50 active:scale-95 cursor-pointer"
+              @click="handleNotify"
+            >
+              <svg v-if="!isNotified" class="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              <svg v-else class="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              <span>{{ isNotified ? 'ثبت شد! هنگام انتشار خبرتان می‌کنیم' : 'هنگام انتشار به من خبر بده' }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Preview Calendar Card -->
+      <div class="rounded-3xl border border-slate-200/90 bg-white p-5 shadow-xs">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div>
+            <h3 class="font-bold text-slate-800 text-sm">پیش‌نمایش نمای ماهانه</h3>
+            <p class="text-xs text-slate-400 mt-0.5">{{ currentMonthName }}</p>
+          </div>
+          <span class="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-500">
+            طرح اولیه
+          </span>
+        </div>
+
+        <!-- Weekdays Header -->
+        <div class="mt-4 grid grid-cols-7 gap-1 text-center text-xs font-semibold text-slate-400">
+          <div>ش</div>
+          <div>ی</div>
+          <div>د</div>
+          <div>س</div>
+          <div>چ</div>
+          <div>پ</div>
+          <div class="text-rose-500">ج</div>
+        </div>
+
+        <!-- Days Grid Preview -->
+        <div class="mt-2 grid grid-cols-7 gap-1.5 text-center">
+          <div
+            v-for="day in daysInMonth"
+            :key="day"
+            class="flex flex-col items-center justify-center rounded-xl p-2 text-xs transition relative"
+            :class="[
+              day === currentDayNumber
+                ? 'bg-sky-500 text-white font-bold shadow-sm shadow-sky-500/30'
+                : 'text-slate-600 hover:bg-slate-50',
+              day % 7 === 0 ? 'text-rose-600' : ''
+            ]"
+          >
+            <span>{{ toPersianDigits(day) }}</span>
+            <!-- Task count indicator dot -->
+            <span
+              v-if="day % 3 === 0"
+              class="mt-0.5 h-1 w-1 rounded-full"
+              :class="day === currentDayNumber ? 'bg-white' : 'bg-sky-400'"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Upcoming Features List -->
+      <div class="rounded-3xl border border-slate-200/90 bg-white p-5 shadow-xs space-y-3.5">
+        <h3 class="text-sm font-bold text-slate-800">امکانات در حال پیاده‌سازی</h3>
+        <ul class="space-y-2.5 text-xs text-slate-600">
+          <li class="flex items-start gap-2.5">
+            <div class="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-600">
+              <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <span>تقویم کامل جلالی و هجری قمری و میلادی به همراه مناسبت‌ها</span>
+          </li>
+          <li class="flex items-start gap-2.5">
+            <div class="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-600">
+              <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <span>نمایش تراکم کارها و تسک‌های هر روز به صورت نقطه‌های رنگی</span>
+          </li>
+          <li class="flex items-start gap-2.5">
+            <div class="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-600">
+              <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <span>تعریف رویدادهای تکرارشونده و مناسبت‌های شخصی</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</template>

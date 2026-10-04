@@ -9,6 +9,10 @@ import AddTaskSheet from '../components/ui/AddTaskSheet.vue'
 import DeleteConfirmDialog from '../components/ui/DeleteConfirmDialog.vue'
 import TaskSelectionToolbar from '../components/ui/TaskSelectionToolbar.vue'
 
+defineOptions({
+  name: 'TimelineView',
+})
+
 const store = useTimelineStore()
 const { days, todayIndex } = storeToRefs(store)
 
@@ -307,7 +311,7 @@ onMounted(() => {
       <button
         v-if="!isSelectionMode && !isViewingToday && isInitialPositionSet"
         type="button"
-        class="pointer-events-auto fixed bottom-6 left-6 z-40 flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-sky-600/30 transition-all hover:bg-sky-700 hover:shadow-xl active:scale-95 cursor-pointer"
+        class="pointer-events-auto absolute bottom-4 left-6 z-30 flex items-center gap-2 rounded-full bg-sky-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-sky-600/30 transition-all hover:bg-sky-700 hover:shadow-xl active:scale-95 cursor-pointer"
         @click="goToToday"
       >
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -329,7 +333,7 @@ onMounted(() => {
       <button
         v-if="!isSelectionMode"
         type="button"
-        class="pointer-events-auto fixed bottom-6 right-6 z-40 inline-flex items-center gap-1.5 rounded-full bg-sky-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-sky-600/30 transition-all hover:bg-sky-700 hover:shadow-xl active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none disabled:hover:bg-sky-600"
+        class="pointer-events-auto absolute bottom-4 right-6 z-30 inline-flex items-center gap-1.5 rounded-full bg-sky-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-sky-600/30 transition-all hover:bg-sky-700 hover:shadow-xl active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none disabled:hover:bg-sky-600"
         :disabled="!canAddTask"
         :title="canAddTask ? 'افزودن کار' : 'برای روزهای گذشته نمی‌توان کار افزود'"
         aria-label="افزودن کار"
@@ -377,20 +381,22 @@ onMounted(() => {
     />
 
     <!-- Toast Notification -->
-    <Transition
-      enter-active-class="transition duration-200 ease-out"
-      enter-from-class="opacity-0 -translate-y-3"
-      enter-to-class="opacity-100 translate-y-0"
-      leave-active-class="transition duration-150 ease-in"
-      leave-from-class="opacity-100 translate-y-0"
-      leave-to-class="opacity-0 -translate-y-3"
-    >
-      <div
-        v-if="toastMessage"
-        class="fixed top-6 left-1/2 -translate-x-1/2 z-50 rounded-full bg-slate-900/90 px-4 py-2 text-xs font-medium text-white shadow-xl backdrop-blur-md"
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="opacity-0 -translate-y-3"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 -translate-y-3"
       >
-        {{ toastMessage }}
-      </div>
-    </Transition>
+        <div
+          v-if="toastMessage"
+          class="fixed top-6 left-1/2 -translate-x-1/2 z-50 rounded-full bg-slate-900/90 px-4 py-2 text-xs font-medium text-white shadow-xl backdrop-blur-md"
+        >
+          {{ toastMessage }}
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
