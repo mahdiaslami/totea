@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onActivated, onDeactivated, onBeforeUnmount, nextTick } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useTimelineStore } from '../stores/timeline'
 import type { PersianDate } from '../modules/timeline/PersianDate'
@@ -41,12 +42,36 @@ function showToast(msg: string) {
   }, 2000)
 }
 
-// Active day indicator
-const activeDayIndex = ref(todayIndex.value)
-const isViewingToday = ref(true)
+// Active day indicator synced with store
+const initialActiveIndex = computed(() => {
+  const found = days.value.findIndex(
+    (d) => d.date.getTime() === store.activeDateTimestamp
+  )
+  return found !== -1 ? found : todayIndex.value
+})
+
+const activeDayIndex = ref(initialActiveIndex.value)
+const isViewingToday = ref(activeDayIndex.value === todayIndex.value)
 const isInitialPositionSet = ref(false)
+const isComponentActive = ref(true)
+const isRestoring = ref(false)
 
 let isScrollHandling = false
+let restoreTimer: ReturnType<typeof setTimeout> | null = null
+
+// Keep activeDayIndex aligned if days are prepended or appended in store
+watch(
+  () => days.value.length,
+  () => {
+    const newIdx = days.value.findIndex(
+      (d) => d.date.getTime() === store.activeDateTimestamp
+    )
+    if (newIdx !== -1 && newIdx !== activeDayIndex.value) {
+      activeDayIndex.value = newIdx
+      isViewingToday.value = (newIdx === todayIndex.value)
+    }
+  }
+)
 
 function getDayElement(index: number): HTMLElement | null {
   if (!scrollContainer.value) return null
@@ -61,19 +86,84 @@ function scrollToDay(index: number, behavior: ScrollBehavior = 'smooth') {
   el.scrollIntoView({ behavior, inline: 'start', block: 'nearest' })
 }
 
+function cancelRestoreTimer() {
+  if (restoreTimer) {
+    clearTimeout(restoreTimer)
+    restoreTimer = null
+  }
+  isRestoring.value = false
+  isScrollHandling = false
+}
+
+function restoreScrollPosition(behavior: ScrollBehavior = 'instant') {
+  isRestoring.value = true
+  isScrollHandling = true
+
+  nextTick(() => {
+    const container = scrollContainer.value
+    if (!container) {
+      isRestoring.value = false
+      isScrollHandling = false
+      return
+    }
+
+    // Locate target index: match activeDateTimestamp in days
+    let targetIndex = days.value.findIndex(
+      (d) => d.date.getTime() === store.activeDateTimestamp
+    )
+    if (targetIndex === -1) {
+      targetIndex = activeDayIndex.value
+    } else {
+      activeDayIndex.value = targetIndex
+      isViewingToday.value = (targetIndex === todayIndex.value)
+      store.setActiveDayIndex(targetIndex)
+    }
+
+    const targetEl = getDayElement(targetIndex)
+    if (targetEl) {
+      targetEl.scrollIntoView({ behavior, inline: 'start', block: 'nearest' })
+    }
+
+    // Alignment verification after tab swipe transition completes (~340ms)
+    if (restoreTimer) clearTimeout(restoreTimer)
+    restoreTimer = setTimeout(() => {
+      restoreTimer = null
+      if (isComponentActive.value && scrollContainer.value) {
+        const el = getDayElement(activeDayIndex.value)
+        if (el) {
+          el.scrollIntoView({ behavior: 'instant', inline: 'start', block: 'nearest' })
+        }
+      }
+      isRestoring.value = false
+      isScrollHandling = false
+    }, 340)
+  })
+}
+
 function goToToday() {
   if (isSelectionMode.value) return
+  activeDayIndex.value = todayIndex.value
+  isViewingToday.value = true
+  store.goToToday()
   scrollToDay(todayIndex.value, 'smooth')
 }
 
 function goToPrevDay() {
   if (isSelectionMode.value) return
   if (activeDayIndex.value > 0) {
-    scrollToDay(activeDayIndex.value - 1, 'smooth')
+    const target = activeDayIndex.value - 1
+    activeDayIndex.value = target
+    isViewingToday.value = (target === todayIndex.value)
+    store.setActiveDayIndex(target)
+    scrollToDay(target, 'smooth')
   } else {
     store.prependPast()
     nextTick(() => {
-      scrollToDay(Math.max(0, activeDayIndex.value - 1), 'smooth')
+      const target = Math.max(0, activeDayIndex.value - 1)
+      activeDayIndex.value = target
+      isViewingToday.value = (target === todayIndex.value)
+      store.setActiveDayIndex(target)
+      scrollToDay(target, 'smooth')
     })
   }
 }
@@ -81,11 +171,19 @@ function goToPrevDay() {
 function goToNextDay() {
   if (isSelectionMode.value) return
   if (activeDayIndex.value < days.value.length - 1) {
-    scrollToDay(activeDayIndex.value + 1, 'smooth')
+    const target = activeDayIndex.value + 1
+    activeDayIndex.value = target
+    isViewingToday.value = (target === todayIndex.value)
+    store.setActiveDayIndex(target)
+    scrollToDay(target, 'smooth')
   } else {
     store.appendFuture()
     nextTick(() => {
-      scrollToDay(activeDayIndex.value + 1, 'smooth')
+      const target = activeDayIndex.value + 1
+      activeDayIndex.value = target
+      isViewingToday.value = (target === todayIndex.value)
+      store.setActiveDayIndex(target)
+      scrollToDay(target, 'smooth')
     })
   }
 }
@@ -93,15 +191,18 @@ function goToNextDay() {
 let scrollEndDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
 function onHorizontalScroll() {
-  if (isSelectionMode.value || !scrollContainer.value || isScrollHandling) return
+  if (!isComponentActive.value || isRestoring.value || isSelectionMode.value || !scrollContainer.value || isScrollHandling) return
   isScrollHandling = true
 
   requestAnimationFrame(() => {
     isScrollHandling = false
+    if (!isComponentActive.value || isRestoring.value) return
     const container = scrollContainer.value
     if (!container) return
 
     const containerRect = container.getBoundingClientRect()
+    if (containerRect.width === 0) return
+
     const containerCenter = containerRect.left + containerRect.width / 2
 
     const dayEls = container.querySelectorAll<HTMLElement>('[data-day-index]')
@@ -124,10 +225,12 @@ function onHorizontalScroll() {
     if (closestIndex !== activeDayIndex.value) {
       activeDayIndex.value = closestIndex
       isViewingToday.value = (closestIndex === todayIndex.value)
+      store.setActiveDayIndex(closestIndex)
     }
 
     if (scrollEndDebounceTimer) clearTimeout(scrollEndDebounceTimer)
     scrollEndDebounceTimer = setTimeout(() => {
+      if (!isComponentActive.value) return
       if (closestIndex <= 2) {
         store.prependPast()
       } else if (closestIndex >= days.value.length - 3) {
@@ -252,16 +355,49 @@ function handleCreateTask(title: string) {
 }
 
 onMounted(() => {
+  isComponentActive.value = true
   nextTick(() => {
-    const container = scrollContainer.value
-    const todayEl = getDayElement(todayIndex.value)
-    if (container && todayEl) {
-      todayEl.scrollIntoView({ behavior: 'instant', inline: 'start', block: 'nearest' })
-    }
+    restoreScrollPosition('instant')
     requestAnimationFrame(() => {
       isInitialPositionSet.value = true
     })
   })
+})
+
+onActivated(() => {
+  isComponentActive.value = true
+  restoreScrollPosition('instant')
+})
+
+onBeforeRouteLeave(() => {
+  isComponentActive.value = false
+  cancelRestoreTimer()
+  if (scrollEndDebounceTimer) {
+    clearTimeout(scrollEndDebounceTimer)
+    scrollEndDebounceTimer = null
+  }
+})
+
+onDeactivated(() => {
+  isComponentActive.value = false
+  cancelRestoreTimer()
+  if (scrollEndDebounceTimer) {
+    clearTimeout(scrollEndDebounceTimer)
+    scrollEndDebounceTimer = null
+  }
+})
+
+onBeforeUnmount(() => {
+  isComponentActive.value = false
+  cancelRestoreTimer()
+  if (scrollEndDebounceTimer) {
+    clearTimeout(scrollEndDebounceTimer)
+    scrollEndDebounceTimer = null
+  }
+  if (toastTimer) {
+    clearTimeout(toastTimer)
+    toastTimer = null
+  }
 })
 </script>
 
@@ -274,15 +410,19 @@ onMounted(() => {
       :class="[
         'flex h-full min-h-0 w-full flex-row overflow-y-hidden transition-opacity duration-150',
         isSelectionMode ? 'overflow-x-hidden' : 'overflow-x-auto snap-x snap-mandatory touch-pan-x',
-        isInitialPositionSet ? 'opacity-100 scroll-smooth' : 'opacity-0'
+        isInitialPositionSet ? 'opacity-100' : 'opacity-0',
+        !isRestoring && isInitialPositionSet ? 'scroll-smooth' : ''
       ]"
       :style="isSelectionMode ? {} : { WebkitOverflowScrolling: 'touch', scrollSnapType: 'x mandatory' }"
       @scroll="onHorizontalScroll"
+      @touchstart="cancelRestoreTimer"
+      @pointerdown="cancelRestoreTimer"
     >
       <div
         v-for="(day, index) in days"
         :key="day.date.getTime()"
         :data-day-index="index"
+        :data-day-time="day.date.getTime()"
         dir="rtl"
         class="h-full w-full min-w-full max-w-full flex-shrink-0 snap-start snap-always"
       >

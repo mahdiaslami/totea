@@ -36,7 +36,7 @@ router.beforeEach((to, from) => {
     <main class="relative flex-1 min-h-0 w-full overflow-hidden">
       <RouterView v-slot="{ Component, route }">
         <Transition :name="transitionName">
-          <KeepAlive :include="['TimelineView']">
+          <KeepAlive :include="['TimelineView', 'CalendarView', 'GoalsView', 'SettingsView']">
             <component :is="Component" :key="route.name || route.path" class="h-full w-full" />
           </KeepAlive>
         </Transition>

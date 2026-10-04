@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { PersianDate, toPersianDigits } from '@/modules/timeline/PersianDate'
+import { useTimelineStore } from '@/stores/timeline'
 
 defineOptions({
   name: 'CalendarView',
 })
+
+const router = useRouter()
+const store = useTimelineStore()
 
 const today = PersianDate.today()
 const currentMonthName = computed(() => today.formatMonthYear())
@@ -17,6 +22,13 @@ const isNotified = ref(false)
 
 function handleNotify() {
   isNotified.value = !isNotified.value
+}
+
+function selectDayAndGoToTimeline(dayNumber: number) {
+  const dayOffset = dayNumber - currentDayNumber
+  const targetDate = PersianDate.addDays(today, dayOffset)
+  store.setActiveDate(targetDate)
+  router.push('/')
 }
 </script>
 
@@ -100,16 +112,18 @@ function handleNotify() {
 
         <!-- Days Grid Preview -->
         <div class="mt-2 grid grid-cols-7 gap-1.5 text-center">
-          <div
+          <button
             v-for="day in daysInMonth"
             :key="day"
-            class="flex flex-col items-center justify-center rounded-xl p-2 text-xs transition relative"
+            type="button"
+            class="flex flex-col items-center justify-center rounded-xl p-2 text-xs transition relative cursor-pointer active:scale-95 focus:outline-none"
             :class="[
               day === currentDayNumber
                 ? 'bg-sky-500 text-white font-bold shadow-sm shadow-sky-500/30'
-                : 'text-slate-600 hover:bg-slate-50',
+                : 'text-slate-600 hover:bg-sky-50 hover:text-sky-600',
               day % 7 === 0 ? 'text-rose-600' : ''
             ]"
+            @click="selectDayAndGoToTimeline(day)"
           >
             <span>{{ toPersianDigits(day) }}</span>
             <!-- Task count indicator dot -->
@@ -118,7 +132,7 @@ function handleNotify() {
               class="mt-0.5 h-1 w-1 rounded-full"
               :class="day === currentDayNumber ? 'bg-white' : 'bg-sky-400'"
             />
-          </div>
+          </button>
         </div>
       </div>
 

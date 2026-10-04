@@ -29,6 +29,7 @@ export const useTimelineStore = defineStore('timeline', () => {
   const days = ref<DayItem[]>([])
   const todayIndex = ref(0)
   const currentDayIndex = ref(0)
+  const activeDateTimestamp = ref<number>(PersianDate.startOfDay(PersianDate.today()).getTime())
   const persistedTasks = ref<Record<number, Task[]>>(loadPersistedTasks())
 
   function getTasksForDate(date: PersianDate): Task[] {
@@ -50,6 +51,7 @@ export const useTimelineStore = defineStore('timeline', () => {
     days.value = initial
     todayIndex.value = PAGE_SIZE
     currentDayIndex.value = PAGE_SIZE
+    activeDateTimestamp.value = base.getTime()
   }
 
   function appendFuture() {
@@ -80,6 +82,42 @@ export const useTimelineStore = defineStore('timeline', () => {
     currentDayIndex.value += PAGE_SIZE
   }
 
+  function ensureDateLoaded(targetDate: PersianDate) {
+    ensureInitialized()
+    const targetStart = PersianDate.startOfDay(targetDate).getTime()
+
+    // Extend backwards if earlier than first day
+    let guard = 0
+    while (days.value.length > 0 && days.value[0].date.getTime() > targetStart && guard < 20) {
+      prependPast()
+      guard++
+    }
+
+    // Extend forward if later than last day
+    guard = 0
+    while (days.value.length > 0 && days.value[days.value.length - 1].date.getTime() < targetStart && guard < 20) {
+      appendFuture()
+      guard++
+    }
+
+    const idx = days.value.findIndex((d) => d.date.getTime() === targetStart)
+    if (idx !== -1) {
+      currentDayIndex.value = idx
+      activeDateTimestamp.value = targetStart
+    }
+  }
+
+  function setActiveDate(date: PersianDate) {
+    ensureDateLoaded(date)
+  }
+
+  function setActiveDayIndex(index: number) {
+    if (index >= 0 && index < days.value.length) {
+      currentDayIndex.value = index
+      activeDateTimestamp.value = days.value[index].date.getTime()
+    }
+  }
+
   function nextDay() {
     if (currentDayIndex.value < days.value.length - 1) {
       currentDayIndex.value++
@@ -89,6 +127,9 @@ export const useTimelineStore = defineStore('timeline', () => {
     } else {
       appendFuture()
       currentDayIndex.value++
+    }
+    if (days.value[currentDayIndex.value]) {
+      activeDateTimestamp.value = days.value[currentDayIndex.value].date.getTime()
     }
   }
 
@@ -102,10 +143,16 @@ export const useTimelineStore = defineStore('timeline', () => {
       prependPast()
       currentDayIndex.value = Math.max(0, currentDayIndex.value - 1)
     }
+    if (days.value[currentDayIndex.value]) {
+      activeDateTimestamp.value = days.value[currentDayIndex.value].date.getTime()
+    }
   }
 
   function goToToday() {
     currentDayIndex.value = todayIndex.value
+    if (days.value[todayIndex.value]) {
+      activeDateTimestamp.value = days.value[todayIndex.value].date.getTime()
+    }
   }
 
   const currentDay = computed<DayItem | undefined>(() => days.value[currentDayIndex.value])
@@ -173,12 +220,16 @@ export const useTimelineStore = defineStore('timeline', () => {
     todayIndex,
     currentDayIndex,
     currentDay,
+    activeDateTimestamp,
     isViewingToday,
     appendFuture,
     prependPast,
     nextDay,
     prevDay,
     goToToday,
+    ensureDateLoaded,
+    setActiveDate,
+    setActiveDayIndex,
     toggleTask,
     addTask,
     deleteTask,
