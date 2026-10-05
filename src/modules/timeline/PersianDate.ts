@@ -1,4 +1,4 @@
-const WEEKDAYS_FA = [
+export const WEEKDAYS_FA = [
   'یکشنبه',
   'دوشنبه',
   'سه‌شنبه',
@@ -8,7 +8,17 @@ const WEEKDAYS_FA = [
   'شنبه',
 ]
 
-const MONTHS_FA = [
+export const SHORT_WEEKDAYS_FA = [
+  'یک‌شنبه',
+  'دوشنبه',
+  'سه‌شنبه',
+  'چهارشنبه',
+  'پنج‌شنبه',
+  'جمعه',
+  'شنبه',
+]
+
+export const MONTHS_FA = [
   'فروردین',
   'اردیبهشت',
   'خرداد',
@@ -22,6 +32,80 @@ const MONTHS_FA = [
   'بهمن',
   'اسفند',
 ]
+
+export const SEASONS_FA = [
+  { name: 'بهار', months: [1, 2, 3], colorFamily: 'green' },
+  { name: 'تابستان', months: [4, 5, 6], colorFamily: 'red' },
+  { name: 'پاییز', months: [7, 8, 9], colorFamily: 'yellow' },
+  { name: 'زمستان', months: [10, 11, 12], colorFamily: 'blue' },
+]
+
+export function jalaliToGregorian(jy: number, jm: number, jd: number): Date {
+  const gDaysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+  const jDaysInMonth = [31, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 29]
+
+  const jy2 = jy - 979
+  const jm2 = jm - 1
+  const jd2 = jd - 1
+
+  let jDayNo =
+    365 * jy2 +
+    Math.floor(jy2 / 33) * 8 +
+    Math.floor(((jy2 % 33) + 3) / 4)
+
+  for (let i = 0; i < jm2; ++i) jDayNo += jDaysInMonth[i]
+  jDayNo += jd2
+
+  let gDayNo = jDayNo + 79
+
+  let gy = 1600 + 400 * Math.floor(gDayNo / 146097)
+  gDayNo = gDayNo % 146097
+
+  let leap = true
+  if (gDayNo >= 36525) {
+    gDayNo--
+    gy += 100 * Math.floor(gDayNo / 36524)
+    gDayNo = gDayNo % 36524
+
+    if (gDayNo >= 365) {
+      gDayNo++
+    } else {
+      leap = false
+    }
+  }
+
+  gy += 4 * Math.floor(gDayNo / 1461)
+  gDayNo %= 1461
+
+  if (gDayNo >= 366) {
+    leap = false
+    gDayNo--
+    gy += Math.floor(gDayNo / 365)
+    gDayNo = gDayNo % 365
+  }
+
+  let i = 0
+  for (; gDayNo >= gDaysInMonth[i] + (i === 1 && leap ? 1 : 0); i++) {
+    gDayNo -= gDaysInMonth[i] + (i === 1 && leap ? 1 : 0)
+  }
+  const gm = i + 1
+  const gd = gDayNo + 1
+
+  return new Date(gy, gm - 1, gd, 12, 0, 0)
+}
+
+export function isJalaliLeap(jy: number): boolean {
+  const d29 = jalaliToGregorian(jy, 12, 29)
+  const next = new Date(d29.getTime() + 24 * 3600 * 1000)
+  const j = new PersianDate(next).toJalali()
+  return j.month === 12 && j.day === 30
+}
+
+export function getDaysInJalaliMonth(jy: number, jm: number): number {
+  if (jm <= 6) return 31
+  if (jm <= 11) return 30
+  return isJalaliLeap(jy) ? 30 : 29
+}
 
 const PERSIAN_DIGITS = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹']
 
@@ -44,6 +128,10 @@ export class PersianDate {
 
   static today(): PersianDate {
     return new PersianDate()
+  }
+
+  static fromJalali(jy: number, jm: number, jd: number): PersianDate {
+    return new PersianDate(jalaliToGregorian(jy, jm, jd))
   }
 
   static startOfDay(date: PersianDate): PersianDate {
@@ -153,6 +241,10 @@ export class PersianDate {
 
   get weekdayName(): string {
     return WEEKDAYS_FA[this.value.getDay()]
+  }
+
+  get shortWeekdayName(): string {
+    return SHORT_WEEKDAYS_FA[this.value.getDay()]
   }
 
   formatJalali(): string {

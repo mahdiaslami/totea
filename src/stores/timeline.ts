@@ -158,16 +158,29 @@ export const useTimelineStore = defineStore('timeline', () => {
   const currentDay = computed<DayItem | undefined>(() => days.value[currentDayIndex.value])
   const isViewingToday = computed(() => currentDayIndex.value === todayIndex.value)
 
-  function toggleTask(day: DayItem, taskId: string) {
-    const target = days.value.find((d) => d.date.getTime() === day.date.getTime())
-    if (!target) return
-    const task: Task | undefined = target.tasks.find((t) => t.id === taskId)
+  function toggleTaskByDate(date: PersianDate, taskId: string) {
+    const timeKey = PersianDate.startOfDay(date).getTime()
+    const tasks = persistedTasks.value[timeKey]
+    if (!tasks) return
+    const task = tasks.find((t) => t.id === taskId)
     if (task) {
       task.done = !task.done
-      const timeKey = PersianDate.startOfDay(target.date).getTime()
-      persistedTasks.value[timeKey] = [...target.tasks]
+      persistedTasks.value = {
+        ...persistedTasks.value,
+        [timeKey]: [...tasks],
+      }
       savePersistedTasks(persistedTasks.value)
+
+      const target = days.value.find((d) => d.date.getTime() === timeKey)
+      if (target) {
+        const dTask = target.tasks.find((t) => t.id === taskId)
+        if (dTask) dTask.done = task.done
+      }
     }
+  }
+
+  function toggleTask(day: DayItem, taskId: string) {
+    toggleTaskByDate(day.date, taskId)
   }
 
   function addTask(date: PersianDate, title: string) {
@@ -185,10 +198,12 @@ export const useTimelineStore = defineStore('timeline', () => {
       target.tasks.push(newTask)
     }
 
-    if (!persistedTasks.value[timeKey]) {
-      persistedTasks.value[timeKey] = []
+    const currentList = persistedTasks.value[timeKey] ? [...persistedTasks.value[timeKey]] : []
+    currentList.push(newTask)
+    persistedTasks.value = {
+      ...persistedTasks.value,
+      [timeKey]: currentList,
     }
-    persistedTasks.value[timeKey].push(newTask)
     savePersistedTasks(persistedTasks.value)
   }
 
@@ -205,7 +220,10 @@ export const useTimelineStore = defineStore('timeline', () => {
       target.tasks = target.tasks.filter((t) => !idSet.has(t.id))
     }
     if (persistedTasks.value[timeKey]) {
-      persistedTasks.value[timeKey] = persistedTasks.value[timeKey].filter((t) => !idSet.has(t.id))
+      persistedTasks.value = {
+        ...persistedTasks.value,
+        [timeKey]: persistedTasks.value[timeKey].filter((t) => !idSet.has(t.id)),
+      }
       savePersistedTasks(persistedTasks.value)
     }
   }
@@ -231,6 +249,9 @@ export const useTimelineStore = defineStore('timeline', () => {
     setActiveDate,
     setActiveDayIndex,
     toggleTask,
+    toggleTaskByDate,
+    persistedTasks,
+    getTasksForDate,
     addTask,
     deleteTask,
     deleteMultipleTasks,
