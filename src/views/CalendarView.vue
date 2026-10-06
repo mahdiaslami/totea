@@ -442,16 +442,6 @@ onActivated(() => {
 
         <!-- Next Year Arrow (left side in RTL) -->
         <div class="flex items-center gap-2">
-          <!-- Return to this year button if navigated away -->
-          <button
-            v-if="selectedYear !== currentJalaliYear"
-            type="button"
-            class="rounded-xl bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 border border-sky-200/80 transition hover:bg-sky-100 active:scale-95 cursor-pointer"
-            @click="selectedYear = currentJalaliYear"
-          >
-            امسال
-          </button>
-
           <!-- Next Year Button (Left arrow in RTL) -->
           <button
             type="button"
@@ -551,23 +541,9 @@ onActivated(() => {
                       :title="`مشاهده ${slot.dayNumber} ${monthData.meta.name}${slot.isToday ? ' (امروز)' : ''}`"
                       @click="goToTimelineDay(slot.pDate!)"
                     >
-                      <!-- Day Number -->
+                      <!-- Weekday Name (Top) -->
                       <span
-                        class="text-sm sm:text-base font-extrabold leading-tight tabular-nums"
-                        :class="[
-                          slot.isToday
-                            ? 'text-sky-700 font-black'
-                            : slot.isFriday
-                              ? 'text-rose-600 group-hover:text-rose-700'
-                              : 'text-slate-800'
-                        ]"
-                      >
-                        {{ toPersianDigits(slot.dayNumber!) }}
-                      </span>
-
-                      <!-- Weekday Name -->
-                      <span
-                        class="text-[10px] sm:text-[11px] leading-tight mt-0.5 truncate max-w-full font-medium"
+                        class="text-[10px] sm:text-[11px] leading-tight truncate max-w-full font-medium"
                         :class="[
                           slot.isToday
                             ? 'text-sky-800 font-bold'
@@ -577,6 +553,20 @@ onActivated(() => {
                         ]"
                       >
                         {{ slot.shortWeekdayName }}
+                      </span>
+
+                      <!-- Day Number (Underneath) -->
+                      <span
+                        class="text-sm sm:text-base font-extrabold leading-tight mt-0.5 tabular-nums"
+                        :class="[
+                          slot.isToday
+                            ? 'text-sky-700 font-black'
+                            : slot.isFriday
+                              ? 'text-rose-600 group-hover:text-rose-700'
+                              : 'text-slate-800'
+                        ]"
+                      >
+                        {{ toPersianDigits(slot.dayNumber!) }}
                       </span>
 
                       <!-- Today indicator and task badge indicators -->
@@ -620,20 +610,9 @@ onActivated(() => {
                       :title="`مشاهده و ویرایش کارهای ${dayWithTask.dayNumber} ${monthData.meta.name}`"
                       @click="goToTimelineDay(dayWithTask.pDate!)"
                     >
+                      <!-- Weekday Name (Top) -->
                       <span
-                        class="text-lg sm:text-xl font-black leading-tight tabular-nums"
-                        :class="[
-                          dayWithTask.isToday
-                            ? 'text-sky-600'
-                            : dayWithTask.isFriday
-                              ? 'text-rose-600'
-                              : 'text-slate-900'
-                        ]"
-                      >
-                        {{ toPersianDigits(dayWithTask.dayNumber!) }}
-                      </span>
-                      <span
-                        class="text-[11px] sm:text-xs font-bold leading-tight mt-0.5 truncate max-w-full"
+                        class="text-[11px] sm:text-xs font-bold leading-tight truncate max-w-full"
                         :class="[
                           dayWithTask.isToday
                             ? 'text-sky-600 font-bold'
@@ -643,6 +622,19 @@ onActivated(() => {
                         ]"
                       >
                         {{ dayWithTask.shortWeekdayName }}
+                      </span>
+                      <!-- Day Number (Underneath) -->
+                      <span
+                        class="text-lg sm:text-xl font-black leading-tight mt-0.5 tabular-nums"
+                        :class="[
+                          dayWithTask.isToday
+                            ? 'text-sky-600'
+                            : dayWithTask.isFriday
+                              ? 'text-rose-600'
+                              : 'text-slate-900'
+                        ]"
+                      >
+                        {{ toPersianDigits(dayWithTask.dayNumber!) }}
                       </span>
 
                       <!-- Today pill if this is today -->
