@@ -335,6 +335,25 @@ const lastMonthHexBg = computed(() => {
   return MONTHS_CONFIG[MONTHS_CONFIG.length - 1]?.hexBg || '#ecfeff'
 })
 
+const scrollContainerRef = ref<HTMLElement | null>(null)
+
+function scrollContainerToElement(targetEl: HTMLElement, center = true, smooth = false) {
+  const container = scrollContainerRef.value || document.getElementById('calendar-scroll-container')
+  if (!container) return
+
+  const containerRect = container.getBoundingClientRect()
+  const targetRect = targetEl.getBoundingClientRect()
+  const relativeTop = targetRect.top - containerRect.top + container.scrollTop
+  const desiredTop = center
+    ? relativeTop - (container.clientHeight / 2) + (targetEl.clientHeight / 2)
+    : relativeTop
+
+  container.scrollTo({
+    top: Math.max(0, Math.round(desiredTop)),
+    behavior: smooth ? 'smooth' : 'auto',
+  })
+}
+
 function handleScrollToToday() {
   if (selectedYear.value !== currentJalaliYear) {
     selectedYear.value = currentJalaliYear
@@ -343,14 +362,10 @@ function handleScrollToToday() {
     requestAnimationFrame(() => {
       const todayEl =
         document.getElementById(`calendar-cell-${currentJalaliMonth}-${todayJalali.day}`) ||
-        document.getElementById('calendar-today-cell')
+        document.getElementById('calendar-today-cell') ||
+        document.getElementById(`month-section-${currentJalaliMonth}`)
       if (todayEl) {
-        todayEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      } else {
-        const monthEl = document.getElementById(`month-section-${currentJalaliMonth}`)
-        if (monthEl) {
-          monthEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }
+        scrollContainerToElement(todayEl, true, true)
       }
     })
   })
@@ -363,17 +378,17 @@ function syncWithActiveTimelineDay(smooth = false) {
   // 1. Ensure calendar is viewing the year of the active day
   selectedYear.value = j.year
 
-  // 2. Scroll to the active day cell or month section
+  // 2. Scroll vertically strictly inside container without affecting horizontal axes or parent elements
   nextTick(() => {
     requestAnimationFrame(() => {
       const targetCellId = `calendar-cell-${j.month}-${j.day}`
       const cellEl = document.getElementById(targetCellId)
       if (cellEl) {
-        cellEl.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'center' })
+        scrollContainerToElement(cellEl, true, smooth)
       } else {
         const monthEl = document.getElementById(`month-section-${j.month}`)
         if (monthEl) {
-          monthEl.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' })
+          scrollContainerToElement(monthEl, false, smooth)
         }
       }
     })
@@ -461,6 +476,7 @@ onActivated(() => {
     <!-- Scrollable container -->
     <div
       id="calendar-scroll-container"
+      ref="scrollContainerRef"
       class="flex-1 w-full overflow-y-auto select-none"
       :style="{ backgroundColor: lastMonthHexBg }"
     >

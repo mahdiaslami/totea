@@ -3,7 +3,9 @@ import { computed, ref } from 'vue'
 import type { DayItem, Task } from '../modules/timeline/date'
 import { PersianDate } from '../modules/timeline/PersianDate'
 
-const PAGE_SIZE = 7
+export const BUFFER_DAYS = 7
+export const WINDOW_SIZE = BUFFER_DAYS * 2 + 1 // 15
+export const CENTER_INDEX = BUFFER_DAYS // 7
 
 const STORAGE_KEY = 'totea_tasks_v1'
 
@@ -27,8 +29,8 @@ function savePersistedTasks(tasksMap: Record<number, Task[]>) {
 
 export const useTimelineStore = defineStore('timeline', () => {
   const days = ref<DayItem[]>([])
-  const todayIndex = ref(0)
-  const currentDayIndex = ref(0)
+  const todayIndex = ref(CENTER_INDEX)
+  const currentDayIndex = ref(CENTER_INDEX)
   const activeDateTimestamp = ref<number>(PersianDate.startOfDay(PersianDate.today()).getTime())
   const persistedTasks = ref<Record<number, Task[]>>(loadPersistedTasks())
 
@@ -37,11 +39,12 @@ export const useTimelineStore = defineStore('timeline', () => {
     return persistedTasks.value[timeKey] ? [...persistedTasks.value[timeKey]] : []
   }
 
-  function ensureInitialized() {
-    if (days.value.length > 0) return
-    const base = PersianDate.startOfDay(PersianDate.today())
+  // Enforce strictly 15 days in memory and DOM at all times:
+  // 7 days in past, 1 active day, 7 days in future
+  function setWindowAroundDate(centerDate: PersianDate) {
+    const base = PersianDate.startOfDay(centerDate)
     const initial: DayItem[] = []
-    for (let offset = -PAGE_SIZE; offset <= PAGE_SIZE; offset++) {
+    for (let offset = -BUFFER_DAYS; offset <= BUFFER_DAYS; offset++) {
       const d = PersianDate.addDays(base, offset)
       initial.push({
         date: d,
@@ -49,66 +52,47 @@ export const useTimelineStore = defineStore('timeline', () => {
       })
     }
     days.value = initial
-    todayIndex.value = PAGE_SIZE
-    currentDayIndex.value = PAGE_SIZE
+    todayIndex.value = initial.findIndex((d) => d.date.isToday())
+    currentDayIndex.value = CENTER_INDEX
     activeDateTimestamp.value = base.getTime()
   }
 
-  function appendFuture() {
-    const last = days.value[days.value.length - 1]
-    const next: DayItem[] = []
-    for (let i = 1; i <= PAGE_SIZE; i++) {
-      const d = PersianDate.addDays(last.date, i)
-      next.push({
-        date: d,
-        tasks: getTasksForDate(d),
-      })
+  function recenterAroundDate(centerDate: PersianDate) {
+    setWindowAroundDate(centerDate)
+  }
+
+  function setTransitionDays(transitionDays: DayItem[], targetIndex: number) {
+    days.value = transitionDays
+    currentDayIndex.value = targetIndex
+    if (transitionDays[targetIndex]) {
+      activeDateTimestamp.value = transitionDays[targetIndex].date.getTime()
     }
-    days.value = [...days.value, ...next]
+    todayIndex.value = transitionDays.findIndex((d) => d.date.isToday())
+  }
+
+  function ensureInitialized() {
+    if (days.value.length === WINDOW_SIZE) return
+    setWindowAroundDate(PersianDate.today())
+  }
+
+  function appendFuture() {
+    const current = days.value[currentDayIndex.value]?.date ?? new PersianDate(activeDateTimestamp.value)
+    const next = PersianDate.addDays(current, 1)
+    setWindowAroundDate(next)
   }
 
   function prependPast() {
-    const first = days.value[0]
-    const prev: DayItem[] = []
-    for (let i = PAGE_SIZE; i >= 1; i--) {
-      const d = PersianDate.addDays(first.date, -i)
-      prev.push({
-        date: d,
-        tasks: getTasksForDate(d),
-      })
-    }
-    days.value = [...prev, ...days.value]
-    todayIndex.value += PAGE_SIZE
-    currentDayIndex.value += PAGE_SIZE
+    const current = days.value[currentDayIndex.value]?.date ?? new PersianDate(activeDateTimestamp.value)
+    const prev = PersianDate.addDays(current, -1)
+    setWindowAroundDate(prev)
   }
 
   function ensureDateLoaded(targetDate: PersianDate) {
-    ensureInitialized()
-    const targetStart = PersianDate.startOfDay(targetDate).getTime()
-
-    // Extend backwards if earlier than first day
-    let guard = 0
-    while (days.value.length > 0 && days.value[0].date.getTime() > targetStart && guard < 20) {
-      prependPast()
-      guard++
-    }
-
-    // Extend forward if later than last day
-    guard = 0
-    while (days.value.length > 0 && days.value[days.value.length - 1].date.getTime() < targetStart && guard < 20) {
-      appendFuture()
-      guard++
-    }
-
-    const idx = days.value.findIndex((d) => d.date.getTime() === targetStart)
-    if (idx !== -1) {
-      currentDayIndex.value = idx
-      activeDateTimestamp.value = targetStart
-    }
+    setWindowAroundDate(targetDate)
   }
 
   function setActiveDate(date: PersianDate) {
-    ensureDateLoaded(date)
+    setWindowAroundDate(date)
   }
 
   function setActiveDayIndex(index: number) {
@@ -118,41 +102,20 @@ export const useTimelineStore = defineStore('timeline', () => {
     }
   }
 
+  function setActiveDateTimestamp(timestamp: number) {
+    activeDateTimestamp.value = timestamp
+  }
+
   function nextDay() {
-    if (currentDayIndex.value < days.value.length - 1) {
-      currentDayIndex.value++
-      if (currentDayIndex.value >= days.value.length - 3) {
-        appendFuture()
-      }
-    } else {
-      appendFuture()
-      currentDayIndex.value++
-    }
-    if (days.value[currentDayIndex.value]) {
-      activeDateTimestamp.value = days.value[currentDayIndex.value].date.getTime()
-    }
+    appendFuture()
   }
 
   function prevDay() {
-    if (currentDayIndex.value > 0) {
-      currentDayIndex.value--
-      if (currentDayIndex.value <= 3) {
-        prependPast()
-      }
-    } else {
-      prependPast()
-      currentDayIndex.value = Math.max(0, currentDayIndex.value - 1)
-    }
-    if (days.value[currentDayIndex.value]) {
-      activeDateTimestamp.value = days.value[currentDayIndex.value].date.getTime()
-    }
+    prependPast()
   }
 
   function goToToday() {
-    currentDayIndex.value = todayIndex.value
-    if (days.value[todayIndex.value]) {
-      activeDateTimestamp.value = days.value[todayIndex.value].date.getTime()
-    }
+    setWindowAroundDate(PersianDate.today())
   }
 
   const currentDay = computed<DayItem | undefined>(() => days.value[currentDayIndex.value])
@@ -240,6 +203,9 @@ export const useTimelineStore = defineStore('timeline', () => {
     currentDay,
     activeDateTimestamp,
     isViewingToday,
+    setWindowAroundDate,
+    recenterAroundDate,
+    setTransitionDays,
     appendFuture,
     prependPast,
     nextDay,
@@ -248,6 +214,7 @@ export const useTimelineStore = defineStore('timeline', () => {
     ensureDateLoaded,
     setActiveDate,
     setActiveDayIndex,
+    setActiveDateTimestamp,
     toggleTask,
     toggleTaskByDate,
     persistedTasks,

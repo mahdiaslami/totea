@@ -13,7 +13,15 @@ const tabIndices: Record<string, number> = {
   settings: 3,
 }
 
+function resetMainScroll() {
+  const mainEl = document.querySelector('main')
+  if (mainEl && mainEl.scrollLeft !== 0) {
+    mainEl.scrollLeft = 0
+  }
+}
+
 router.beforeEach((to, from) => {
+  resetMainScroll()
   const fromIndex = tabIndices[from.name as string] ?? (from.meta?.index as number) ?? 0
   const toIndex = tabIndices[to.name as string] ?? (to.meta?.index as number) ?? 0
 
@@ -33,9 +41,9 @@ router.beforeEach((to, from) => {
 <template>
   <div class="relative flex h-full w-full flex-col bg-white overflow-hidden select-none font-default">
     <!-- Main Content Area where views swipe smoothly -->
-    <main class="relative flex-1 min-h-0 w-full overflow-hidden">
+    <main class="relative flex-1 min-h-0 w-full overflow-hidden overflow-x-clip">
       <RouterView v-slot="{ Component, route }">
-        <Transition :name="transitionName">
+        <Transition :name="transitionName" @after-enter="resetMainScroll">
           <KeepAlive :include="['TimelineView', 'CalendarView', 'GoalsView', 'SettingsView']">
             <component :is="Component" :key="route.name || route.path" class="h-full w-full" />
           </KeepAlive>
@@ -49,18 +57,24 @@ router.beforeEach((to, from) => {
 </template>
 
 <style>
+/* Prevent horizontal ancestor scrolling during route swipes */
+main {
+  overflow-x: clip;
+}
+
 /* Smooth swipe animations between pages */
 .swipe-to-left-enter-active,
 .swipe-to-left-leave-active,
 .swipe-to-right-enter-active,
 .swipe-to-right-leave-active {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
   transition: transform 0.32s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.28s ease;
   will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 /* Navigating to the left (higher tab index in RTL):
