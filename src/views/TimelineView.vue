@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted, onActivated, onDeactivated, onBeforeUnmount, nextTick } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { storeToRefs } from 'pinia'
-import { useTimelineStore, BUFFER_DAYS, WINDOW_SIZE, CENTER_INDEX } from '../stores/timeline'
+import { useTimelineStore, BUFFER_DAYS, CENTER_INDEX } from '../stores/timeline'
 import { PersianDate } from '../modules/timeline/PersianDate'
 import type { Task, DayItem } from '../modules/timeline/date'
 import DayView from '../components/ui/DayView.vue'
@@ -60,7 +60,7 @@ const isInitialPositionSet = ref(false)
 const isComponentActive = ref(true)
 const isRestoring = ref(false)
 
-let isReCentering = false
+let lastShiftedDateKey = 0
 let restoreTimer: ReturnType<typeof setTimeout> | null = null
 let scrollEndTimer: ReturnType<typeof setTimeout> | null = null
 let targetDayIndex: number | null = null
@@ -100,7 +100,6 @@ function cancelRestoreTimer() {
   }
   targetDayIndex = null
   isRestoring.value = false
-  isReCentering = false
 }
 
 function restoreScrollPosition(behavior: ScrollBehavior = 'instant') {
@@ -196,73 +195,46 @@ function alignDayExact(index: number) {
   }
 }
 
-// Re-centers the window so that the settled day becomes CENTER_INDEX
-// (strictly 7 days past, 1 active day, 7 days future)
-function recenterAroundIndex(settledIndex: number) {
-  if (isReCentering || isSelectionMode.value) return
-  if (!scrollContainer.value) return
+// When reaching the last 2 days of either side, simply add 2 days and remove 2 days
+function checkEdgeAndShift(currentIndex: number) {
+  if (isRestoring.value || isSelectionMode.value || !scrollContainer.value) return
 
-  const targetDay = days.value[settledIndex]
-  if (!targetDay) return
+  const total = days.value.length
+  if (total < 5) return
 
-  // If already at CENTER_INDEX with exactly WINDOW_SIZE days, align exactly and finish
-  if (settledIndex === CENTER_INDEX && days.value.length === WINDOW_SIZE) {
-    activeDayIndex.value = CENTER_INDEX
-    store.setActiveDayIndex(CENTER_INDEX)
-    targetDayIndex = null
-    alignDayExact(CENTER_INDEX)
+  const currentDay = days.value[currentIndex]
+  if (!currentDay) return
+
+  const targetTime = currentDay.date.getTime()
+  if (lastShiftedDateKey === targetTime) {
     return
   }
 
-  isReCentering = true
-  targetDayIndex = null
-  const centerDate = targetDay.date
+  // Edge triggers: last 2 days of future, or first 2 days of past
+  if (currentIndex >= total - 2) {
+    lastShiftedDateKey = targetTime
+    const newIdx = store.shiftDaysForward(2)
+    activeDayIndex.value = newIdx
+    return
+  }
 
-  store.setWindowAroundDate(centerDate)
-
-  nextTick(() => {
-    if (!scrollContainer.value) {
-      isReCentering = false
-      return
-    }
-
-    activeDayIndex.value = CENTER_INDEX
-    store.setActiveDayIndex(CENTER_INDEX)
-
-    isRestoring.value = true
-    const el = getDayElement(CENTER_INDEX)
-    if (el) {
-      el.scrollIntoView({ behavior: 'instant', inline: 'start', block: 'nearest' })
-      alignDayExact(CENTER_INDEX)
-    }
-
-    requestAnimationFrame(() => {
-      isRestoring.value = false
-      isReCentering = false
-      alignDayExact(CENTER_INDEX)
-    })
-  })
-}
-
-function handleScrollSettled() {
-  if (!isComponentActive.value || isRestoring.value || isSelectionMode.value || !scrollContainer.value || isReCentering) return
-  const finalIdx = updateActiveDayFromScroll()
-  if (finalIdx !== CENTER_INDEX || days.value.length !== WINDOW_SIZE) {
-    recenterAroundIndex(finalIdx)
-  } else {
-    alignDayExact(CENTER_INDEX)
+  if (currentIndex <= 1) {
+    lastShiftedDateKey = targetTime
+    const newIdx = store.shiftDaysBackward(2)
+    activeDayIndex.value = newIdx
+    return
   }
 }
 
 function onHorizontalScroll() {
-  if (!isComponentActive.value || isRestoring.value || isSelectionMode.value || !scrollContainer.value || isReCentering) return
+  if (!isComponentActive.value || isRestoring.value || isSelectionMode.value || !scrollContainer.value) return
 
   updateActiveDayFromScroll()
 
   if (scrollEndTimer) clearTimeout(scrollEndTimer)
   scrollEndTimer = setTimeout(() => {
-    handleScrollSettled()
-  }, 80)
+    onScrollEnd()
+  }, 100)
 }
 
 function onScrollEnd() {
@@ -270,12 +242,14 @@ function onScrollEnd() {
     clearTimeout(scrollEndTimer)
     scrollEndTimer = null
   }
-  handleScrollSettled()
+  if (!isComponentActive.value || isRestoring.value || isSelectionMode.value || !scrollContainer.value) return
+  const currentIdx = updateActiveDayFromScroll()
+  checkEdgeAndShift(currentIdx)
 }
 
 // Return to Today with smooth direction-aware scroll and guaranteed preparation of pages
 function goToToday() {
-  if (isSelectionMode.value || isReCentering) return
+  if (isSelectionMode.value) return
   cancelRestoreTimer()
 
   const today = PersianDate.startOfDay(PersianDate.today())
@@ -294,15 +268,7 @@ function goToToday() {
     return
   }
 
-  // Today is outside the current window:
-  // Build a 15-day window centered on Today (Today is at CENTER_INDEX = 7).
-  // Place currentDay in the adjacent slot in the direction of travel:
-  // - If current day is in FUTURE: currentDay is at index 8 (just to future of Today).
-  //   User starts at index 8, smooth scrolls to index 7 (left to right, future to past in RTL).
-  // - If current day is in PAST: currentDay is at index 6 (just to past of Today).
-  //   User starts at index 6, smooth scrolls to index 7 (right to left, past to future in RTL).
   isRestoring.value = true
-  isReCentering = true
 
   const baseDays: DayItem[] = []
   for (let offset = -BUFFER_DAYS; offset <= BUFFER_DAYS; offset++) {
@@ -348,7 +314,6 @@ function goToToday() {
       if (restoreTimer) clearTimeout(restoreTimer)
       restoreTimer = setTimeout(() => {
         restoreTimer = null
-        isReCentering = false
         targetDayIndex = null
 
         // Restore normal days around today
@@ -364,43 +329,40 @@ function goToToday() {
 }
 
 function goToPrevDay() {
-  if (isSelectionMode.value || isReCentering) return
+  if (isSelectionMode.value) return
   const currentTarget = targetDayIndex ?? activeDayIndex.value
   if (currentTarget > 0) {
     const target = currentTarget - 1
     targetDayIndex = target
     scrollToDay(target, 'smooth')
   } else {
-    const current = days.value[0]?.date
-    if (!current) return
-    const prevDate = PersianDate.addDays(current, -1)
-    store.setWindowAroundDate(prevDate)
+    const prevDate = days.value[0]?.date
+    if (!prevDate) return
+    store.shiftDaysBackward(2)
     nextTick(() => {
-      scrollToDay(CENTER_INDEX, 'instant')
-      activeDayIndex.value = CENTER_INDEX
-      store.setActiveDayIndex(CENTER_INDEX)
-      alignDayExact(CENTER_INDEX)
+      activeDayIndex.value = 1
+      store.setActiveDayIndex(1)
+      alignDayExact(1)
     })
   }
 }
 
 function goToNextDay() {
-  if (isSelectionMode.value || isReCentering) return
+  if (isSelectionMode.value) return
   const currentTarget = targetDayIndex ?? activeDayIndex.value
   if (currentTarget < days.value.length - 1) {
     const target = currentTarget + 1
     targetDayIndex = target
     scrollToDay(target, 'smooth')
   } else {
-    const current = days.value[days.value.length - 1]?.date
-    if (!current) return
-    const nextDate = PersianDate.addDays(current, 1)
-    store.setWindowAroundDate(nextDate)
+    const nextDate = days.value[days.value.length - 1]?.date
+    if (!nextDate) return
+    store.shiftDaysForward(2)
     nextTick(() => {
-      scrollToDay(CENTER_INDEX, 'instant')
-      activeDayIndex.value = CENTER_INDEX
-      store.setActiveDayIndex(CENTER_INDEX)
-      alignDayExact(CENTER_INDEX)
+      const idx = days.value.length - 2
+      activeDayIndex.value = idx
+      store.setActiveDayIndex(idx)
+      alignDayExact(idx)
     })
   }
 }
@@ -537,28 +499,16 @@ onActivated(() => {
 onBeforeRouteLeave(() => {
   isComponentActive.value = false
   cancelRestoreTimer()
-  if (scrollEndTimer) {
-    clearTimeout(scrollEndTimer)
-    scrollEndTimer = null
-  }
 })
 
 onDeactivated(() => {
   isComponentActive.value = false
   cancelRestoreTimer()
-  if (scrollEndTimer) {
-    clearTimeout(scrollEndTimer)
-    scrollEndTimer = null
-  }
 })
 
 onBeforeUnmount(() => {
   isComponentActive.value = false
   cancelRestoreTimer()
-  if (scrollEndTimer) {
-    clearTimeout(scrollEndTimer)
-    scrollEndTimer = null
-  }
   if (toastTimer) {
     clearTimeout(toastTimer)
     toastTimer = null

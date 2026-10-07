@@ -75,6 +75,52 @@ export const useTimelineStore = defineStore('timeline', () => {
     setWindowAroundDate(PersianDate.today())
   }
 
+  function shiftDaysForward(count = 2): number {
+    if (days.value.length === 0) return currentDayIndex.value
+    const currentActiveTs = activeDateTimestamp.value
+    const lastDate = days.value[days.value.length - 1].date
+    const newItems: DayItem[] = []
+    for (let i = 1; i <= count; i++) {
+      const d = PersianDate.addDays(lastDate, i)
+      newItems.push({
+        date: d,
+        tasks: getTasksForDate(d),
+      })
+    }
+    const updated = [...days.value.slice(count), ...newItems]
+    days.value = updated
+    todayIndex.value = updated.findIndex((d) => d.date.isToday())
+    let newIdx = updated.findIndex((d) => d.date.getTime() === currentActiveTs)
+    if (newIdx === -1) {
+      newIdx = Math.max(0, currentDayIndex.value - count)
+    }
+    currentDayIndex.value = newIdx
+    return newIdx
+  }
+
+  function shiftDaysBackward(count = 2): number {
+    if (days.value.length === 0) return currentDayIndex.value
+    const currentActiveTs = activeDateTimestamp.value
+    const firstDate = days.value[0].date
+    const newItems: DayItem[] = []
+    for (let i = count; i >= 1; i--) {
+      const d = PersianDate.addDays(firstDate, -i)
+      newItems.push({
+        date: d,
+        tasks: getTasksForDate(d),
+      })
+    }
+    const updated = [...newItems, ...days.value.slice(0, days.value.length - count)]
+    days.value = updated
+    todayIndex.value = updated.findIndex((d) => d.date.isToday())
+    let newIdx = updated.findIndex((d) => d.date.getTime() === currentActiveTs)
+    if (newIdx === -1) {
+      newIdx = Math.min(updated.length - 1, currentDayIndex.value + count)
+    }
+    currentDayIndex.value = newIdx
+    return newIdx
+  }
+
   function appendFuture() {
     const current = days.value[currentDayIndex.value]?.date ?? new PersianDate(activeDateTimestamp.value)
     const next = PersianDate.addDays(current, 1)
@@ -205,6 +251,8 @@ export const useTimelineStore = defineStore('timeline', () => {
     isViewingToday,
     setWindowAroundDate,
     recenterAroundDate,
+    shiftDaysForward,
+    shiftDaysBackward,
     setTransitionDays,
     appendFuture,
     prependPast,
