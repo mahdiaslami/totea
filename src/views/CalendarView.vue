@@ -218,10 +218,22 @@ interface CalendarDaySlot {
   pendingTasksCount?: number
 }
 
+interface CalendarDayWithTasks {
+  isEmpty: false
+  dayNumber: number
+  pDate: PersianDate
+  isToday: boolean
+  isFriday: boolean
+  shortWeekdayName: string
+  tasks: Task[]
+  completedTasksCount: number
+  pendingTasksCount: number
+}
+
 interface CalendarWeek {
   weekNumber: number
   slots: CalendarDaySlot[]
-  daysWithTasks: CalendarDaySlot[]
+  daysWithTasks: CalendarDayWithTasks[]
 }
 
 // Generate the weeks and days for a given month in the selected year
@@ -290,8 +302,14 @@ function getMonthWeeks(monthNum: number): {
   for (let i = 0; i < allSlots.length; i += 7) {
     const weekSlots = allSlots.slice(i, i + 7)
     const daysWithTasks = weekSlots.filter(
-      (s): s is CalendarDaySlot & { pDate: PersianDate; tasks: Task[]; dayNumber: number } =>
-        !s.isEmpty && !!s.tasks && s.tasks.length > 0
+      (s): s is CalendarDayWithTasks =>
+        !s.isEmpty &&
+        !!s.pDate &&
+        !!s.tasks &&
+        s.tasks.length > 0 &&
+        typeof s.dayNumber === 'number' &&
+        typeof s.completedTasksCount === 'number' &&
+        typeof s.pendingTasksCount === 'number'
     )
     weeks.push({
       weekNumber: Math.floor(i / 7) + 1,
@@ -323,12 +341,24 @@ const monthsData = computed(() => {
 })
 
 function goToTimelineDay(pDate: PersianDate) {
+  selectDate(pDate)
   store.setActiveDate(pDate)
   router.push('/')
 }
 
 function handleToggleTask(pDate: PersianDate, taskId: string) {
   store.toggleTaskByDate(pDate, taskId)
+}
+
+// Collapsible task cards under each week in the calendar
+const expandedDays = ref<Record<number, boolean>>({})
+
+function isDayExpanded(timeKey: number): boolean {
+  return !!expandedDays.value[timeKey]
+}
+
+function toggleDayExpanded(timeKey: number) {
+  expandedDays.value[timeKey] = !expandedDays.value[timeKey]
 }
 
 const lastMonthHexBg = computed(() => {
@@ -355,6 +385,7 @@ function scrollContainerToElement(targetEl: HTMLElement, center = true, smooth =
 }
 
 function handleScrollToToday() {
+  selectDate(PersianDate.today())
   if (selectedYear.value !== currentJalaliYear) {
     selectedYear.value = currentJalaliYear
   }
@@ -371,12 +402,24 @@ function handleScrollToToday() {
   })
 }
 
+const selectedDateKey = ref<number>(
+  PersianDate.startOfDay(store.currentDay?.date ?? new PersianDate(store.activeDateTimestamp)).getTime()
+)
+
+function selectDate(date?: PersianDate | null) {
+  if (!date) return
+  selectedDateKey.value = PersianDate.startOfDay(date).getTime()
+}
+
 function syncWithActiveTimelineDay(smooth = false) {
   const activeDate = store.currentDay?.date ?? new PersianDate(store.activeDateTimestamp)
   const j = activeDate.toJalali()
+  selectedDateKey.value = PersianDate.startOfDay(activeDate).getTime()
 
   // 1. Ensure calendar is viewing the year of the active day
-  selectedYear.value = j.year
+  if (selectedYear.value !== j.year) {
+    selectedYear.value = j.year
+  }
 
   // 2. Scroll vertically strictly inside container without affecting horizontal axes or parent elements
   nextTick(() => {
@@ -395,12 +438,21 @@ function syncWithActiveTimelineDay(smooth = false) {
   })
 }
 
-onMounted(() => {
+function triggerSyncWithActiveTimelineDay() {
   syncWithActiveTimelineDay(false)
+
+  // Settle alignment smoothly once the route transition animation finishes
+  setTimeout(() => {
+    syncWithActiveTimelineDay(true)
+  }, 260)
+}
+
+onMounted(() => {
+  triggerSyncWithActiveTimelineDay()
 })
 
 onActivated(() => {
-  syncWithActiveTimelineDay(false)
+  triggerSyncWithActiveTimelineDay()
 })
 </script>
 
@@ -543,18 +595,22 @@ onActivated(() => {
                       aria-hidden="true"
                     />
 
-                    <!-- Day Button: borderless, transparent background (subtle matte background for today), 7 days per line -->
+                    <!-- Day Button: borderless, no focus rings, single selected matte background -->
                     <button
                       v-else
                       :id="`calendar-cell-${monthData.meta.number}-${slot.dayNumber}`"
                       type="button"
-                      class="flex flex-col items-center justify-center py-2 px-0.5 rounded-xl transition-all duration-150 cursor-pointer active:scale-95 group focus:outline-none border-0"
+                      class="flex flex-col items-center justify-center py-2 px-0.5 rounded-xl transition-colors duration-150 cursor-pointer active:scale-95 group border-0 outline-none focus:outline-none focus-visible:outline-none focus:ring-0 active:outline-none active:ring-0 select-none"
+                      style="-webkit-tap-highlight-color: transparent;"
                       :class="[
                         slot.isToday
-                          ? 'bg-black/10 ring-1.5 ring-black/15 shadow-xs font-black'
-                          : 'bg-transparent hover:bg-black/5'
+                          ? 'bg-black/10 font-black'
+                          : (slot.pDate && selectedDateKey === PersianDate.startOfDay(slot.pDate).getTime()
+                              ? 'bg-black/5'
+                              : 'bg-transparent')
                       ]"
                       :title="`مشاهده ${slot.dayNumber} ${monthData.meta.name}${slot.isToday ? ' (امروز)' : ''}`"
+                      @pointerdown="selectDate(slot.pDate)"
                       @click="goToTimelineDay(slot.pDate!)"
                     >
                       <!-- Weekday Name (Top) -->
@@ -609,61 +665,103 @@ onActivated(() => {
                   </template>
                 </div>
 
-                <!-- If any day in this week has registered tasks, render its full-width task card below the row -->
+                <!-- If any day in this week has registered tasks, render collapsible task cards below the row -->
                 <div
                   v-if="week.daysWithTasks.length > 0"
-                  class="flex flex-col gap-2.5 w-full pt-1.5 pb-1.5"
+                  class="flex flex-col gap-2 w-full pt-1.5 pb-1.5"
                 >
                   <div
                     v-for="dayWithTask in week.daysWithTasks"
-                    :key="dayWithTask.dayNumber"
-                    class="w-full flex items-start gap-3.5 py-4 sm:py-5 px-3 sm:px-4 rounded-2xl bg-black/[0.035] transition-all"
+                    :key="dayWithTask.pDate.getTime()"
+                    class="w-full flex flex-col rounded-2xl bg-black/[0.035] transition-all overflow-hidden"
                   >
-                    <!-- Right Side: Day number on top, Weekday name underneath -->
-                    <button
-                      type="button"
-                      class="flex flex-col items-center justify-center w-12 sm:w-14 py-1 px-0.5 shrink-0 cursor-pointer transition hover:opacity-80 active:scale-95 focus:outline-none bg-transparent border-0"
-                      :title="`مشاهده و ویرایش کارهای ${dayWithTask.dayNumber} ${monthData.meta.name}`"
-                      @click="goToTimelineDay(dayWithTask.pDate!)"
+                    <!-- Clickable Header: Summary of day & tasks, click to toggle open/close -->
+                    <div
+                      class="w-full flex items-center justify-between gap-3 py-2.5 px-3 sm:px-4 cursor-pointer select-none transition hover:bg-black/[0.02] active:scale-[0.995]"
+                      @click="toggleDayExpanded(dayWithTask.pDate.getTime())"
                     >
-                      <!-- Weekday Name (Top) -->
-                      <span
-                        class="text-[11px] sm:text-xs font-bold leading-tight truncate max-w-full"
-                        :class="[
-                          dayWithTask.isToday
-                            ? 'text-sky-600 font-bold'
-                            : dayWithTask.isFriday
-                              ? 'text-rose-600'
-                              : 'text-slate-500'
-                        ]"
-                      >
-                        {{ dayWithTask.shortWeekdayName }}
-                      </span>
-                      <!-- Day Number (Underneath) -->
-                      <span
-                        class="text-lg sm:text-xl font-black leading-tight mt-0.5 tabular-nums"
-                        :class="[
-                          dayWithTask.isToday
-                            ? 'text-sky-600'
-                            : dayWithTask.isFriday
-                              ? 'text-rose-600'
-                              : 'text-slate-900'
-                        ]"
-                      >
-                        {{ toPersianDigits(dayWithTask.dayNumber!) }}
-                      </span>
+                      <!-- Right Side: Day info & Task count summary -->
+                      <div class="flex items-center gap-2.5 min-w-0">
+                        <!-- Day badge button (Click navigates to timeline day) -->
+                        <button
+                          type="button"
+                          class="flex items-center gap-1.5 py-1 px-2.5 rounded-xl transition hover:bg-black/10 active:scale-95 focus:outline-none bg-black/5 border-0 shrink-0 cursor-pointer"
+                          :title="`مشاهده روز ${dayWithTask.dayNumber} ${monthData.meta.name} در خط زمان`"
+                          @click.stop="goToTimelineDay(dayWithTask.pDate!)"
+                        >
+                          <span
+                            class="text-xs font-bold leading-none"
+                            :class="[
+                              dayWithTask.isToday
+                                ? 'text-sky-600'
+                                : dayWithTask.isFriday
+                                  ? 'text-rose-600'
+                                  : 'text-slate-600'
+                            ]"
+                          >
+                            {{ dayWithTask.shortWeekdayName }}
+                          </span>
+                          <span
+                            class="text-sm font-black leading-none tabular-nums"
+                            :class="[
+                              dayWithTask.isToday
+                                ? 'text-sky-600'
+                                : dayWithTask.isFriday
+                                  ? 'text-rose-600'
+                                  : 'text-slate-900'
+                            ]"
+                          >
+                            {{ toPersianDigits(dayWithTask.dayNumber!) }}
+                          </span>
+                          <span
+                            v-if="dayWithTask.isToday"
+                            class="rounded-full bg-sky-600 px-1 py-0.2 text-[8px] font-bold text-white shadow-xs"
+                          >
+                            امروز
+                          </span>
+                        </button>
 
-                      <!-- Today pill if this is today -->
-                      <span
-                        v-if="dayWithTask.isToday"
-                        class="mt-1 rounded-full bg-sky-600 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-xs"
-                      >
-                        امروز
-                      </span>
-                    </button>
+                        <!-- Content summary: How many tasks & how many completed -->
+                        <div class="flex items-center gap-2 text-xs sm:text-sm font-medium text-slate-700 truncate">
+                          <span>{{ toPersianDigits(dayWithTask.tasks.length) }} کار</span>
+                          <span
+                            v-if="dayWithTask.completedTasksCount > 0"
+                            class="text-[11px] font-semibold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md"
+                          >
+                            {{ dayWithTask.completedTasksCount === dayWithTask.tasks.length
+                                ? 'همه انجام شد'
+                                : `${toPersianDigits(dayWithTask.completedTasksCount)} انجام‌شده`
+                            }}
+                          </span>
+                          <span
+                            v-else
+                            class="text-[11px] text-slate-400 font-normal"
+                          >
+                            (انجام‌نشده)
+                          </span>
+                        </div>
+                      </div>
 
-                    <!-- Left Side: Tasks listed one below the other in the remaining space -->
-                    <div class="flex-1 min-w-0 flex flex-col justify-center space-y-2">
+                      <!-- Left Side: Expand / Collapse Chevron indicator -->
+                      <div class="flex items-center text-slate-400 shrink-0 pr-1">
+                        <svg
+                          class="h-4 w-4 transition-transform duration-200"
+                          :class="isDayExpanded(dayWithTask.pDate.getTime()) ? 'rotate-180' : ''"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+
+                    <!-- Expandable Task List (only visible when expanded) -->
+                    <div
+                      v-if="isDayExpanded(dayWithTask.pDate.getTime())"
+                      class="flex flex-col space-y-1.5 px-3 sm:px-4 pb-3 pt-1 border-t border-black/5"
+                    >
                       <div
                         v-for="task in dayWithTask.tasks"
                         :key="task.id"

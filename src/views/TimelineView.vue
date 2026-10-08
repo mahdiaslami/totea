@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onActivated, onDeactivated, onBeforeUnmount, nextTick } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
+import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useTimelineStore, BUFFER_DAYS, CENTER_INDEX } from '../stores/timeline'
 import { PersianDate } from '../modules/timeline/PersianDate'
@@ -14,8 +14,14 @@ defineOptions({
   name: 'TimelineView',
 })
 
+const router = useRouter()
 const store = useTimelineStore()
 const { days } = storeToRefs(store)
+
+function handleOpenCalendar(date: PersianDate) {
+  store.setActiveDate(date)
+  router.push('/calendar')
+}
 
 const scrollContainer = ref<HTMLElement | null>(null)
 const isSheetOpen = ref(false)
@@ -60,9 +66,7 @@ const isInitialPositionSet = ref(false)
 const isComponentActive = ref(true)
 const isRestoring = ref(false)
 
-let lastShiftedDateKey = 0
 let restoreTimer: ReturnType<typeof setTimeout> | null = null
-let scrollEndTimer: ReturnType<typeof setTimeout> | null = null
 let targetDayIndex: number | null = null
 
 // Keep activeDayIndex aligned if active timestamp changes in store
@@ -94,10 +98,6 @@ function cancelRestoreTimer() {
     clearTimeout(restoreTimer)
     restoreTimer = null
   }
-  if (scrollEndTimer) {
-    clearTimeout(scrollEndTimer)
-    scrollEndTimer = null
-  }
   targetDayIndex = null
   isRestoring.value = false
 }
@@ -121,6 +121,7 @@ function restoreScrollPosition(behavior: ScrollBehavior = 'instant') {
     }
 
     activeDayIndex.value = targetIndex
+    // activeIdx = targetIndex
     store.setActiveDayIndex(targetIndex)
 
     const targetEl = getDayElement(targetIndex)
@@ -195,56 +196,29 @@ function alignDayExact(index: number) {
   }
 }
 
-// When reaching the last 2 days of either side, simply add 2 days and remove 2 days
-function checkEdgeAndShift(currentIndex: number) {
-  if (isRestoring.value || isSelectionMode.value || !scrollContainer.value) return
-
-  const total = days.value.length
-  if (total < 5) return
-
-  const currentDay = days.value[currentIndex]
-  if (!currentDay) return
-
-  const targetTime = currentDay.date.getTime()
-  if (lastShiftedDateKey === targetTime) {
-    return
-  }
-
-  // Edge triggers: last 2 days of future, or first 2 days of past
-  if (currentIndex >= total - 2) {
-    lastShiftedDateKey = targetTime
-    const newIdx = store.shiftDaysForward(2)
-    activeDayIndex.value = newIdx
-    return
-  }
-
-  if (currentIndex <= 1) {
-    lastShiftedDateKey = targetTime
-    const newIdx = store.shiftDaysBackward(2)
-    activeDayIndex.value = newIdx
-    return
-  }
-}
-
 function onHorizontalScroll() {
   if (!isComponentActive.value || isRestoring.value || isSelectionMode.value || !scrollContainer.value) return
 
   updateActiveDayFromScroll()
-
-  if (scrollEndTimer) clearTimeout(scrollEndTimer)
-  scrollEndTimer = setTimeout(() => {
-    onScrollEnd()
-  }, 100)
 }
 
+// When native scrollend fires (animation ends and lands on day), adjust days to maintain 7 before and 7 after
 function onScrollEnd() {
-  if (scrollEndTimer) {
-    clearTimeout(scrollEndTimer)
-    scrollEndTimer = null
-  }
   if (!isComponentActive.value || isRestoring.value || isSelectionMode.value || !scrollContainer.value) return
+
   const currentIdx = updateActiveDayFromScroll()
-  checkEdgeAndShift(currentIdx)
+  const currentDay = days.value[currentIdx]
+  if (!currentDay) return
+
+  // Recenter window around currentDay so that 7 days before and 7 days after are always available
+  if (currentIdx !== CENTER_INDEX || days.value.length !== 15) {
+    store.recenterAroundDate(currentDay.date)
+    nextTick(() => {
+      activeDayIndex.value = CENTER_INDEX
+      scrollToDay(CENTER_INDEX, 'instant')
+      alignDayExact(CENTER_INDEX)
+    })
+  }
 }
 
 // Return to Today with smooth direction-aware scroll and guaranteed preparation of pages
@@ -326,45 +300,6 @@ function goToToday() {
       }, 420)
     })
   })
-}
-
-function goToPrevDay() {
-  if (isSelectionMode.value) return
-  const currentTarget = targetDayIndex ?? activeDayIndex.value
-  if (currentTarget > 0) {
-    const target = currentTarget - 1
-    targetDayIndex = target
-    scrollToDay(target, 'smooth')
-  } else {
-    const prevDate = days.value[0]?.date
-    if (!prevDate) return
-    store.shiftDaysBackward(2)
-    nextTick(() => {
-      activeDayIndex.value = 1
-      store.setActiveDayIndex(1)
-      alignDayExact(1)
-    })
-  }
-}
-
-function goToNextDay() {
-  if (isSelectionMode.value) return
-  const currentTarget = targetDayIndex ?? activeDayIndex.value
-  if (currentTarget < days.value.length - 1) {
-    const target = currentTarget + 1
-    targetDayIndex = target
-    scrollToDay(target, 'smooth')
-  } else {
-    const nextDate = days.value[days.value.length - 1]?.date
-    if (!nextDate) return
-    store.shiftDaysForward(2)
-    nextTick(() => {
-      const idx = days.value.length - 2
-      activeDayIndex.value = idx
-      store.setActiveDayIndex(idx)
-      alignDayExact(idx)
-    })
-  }
 }
 
 function handleToggle(day: DayItem, taskId: string) {
@@ -536,7 +471,7 @@ onBeforeUnmount(() => {
     >
       <div
         v-for="(day, index) in days"
-        :key="day.date.getTime()"
+        :key="day.date.formatJalali()"
         :data-day-index="index"
         :data-day-time="day.date.getTime()"
         dir="rtl"
@@ -549,8 +484,7 @@ onBeforeUnmount(() => {
           @toggle="(taskId: string) => handleToggle(day, taskId)"
           @select-task="(t: Task) => handleSelectTask(day, t)"
           @long-press-task="(t: Task) => enterSelectionMode(day, t)"
-          @next-day="goToNextDay"
-          @prev-day="goToPrevDay"
+          @open-calendar="handleOpenCalendar"
         />
       </div>
     </div>

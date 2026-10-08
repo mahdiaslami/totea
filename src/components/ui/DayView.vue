@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { DayItem } from '@/modules/timeline/date'
 import type { Task } from '@/modules/timeline/date'
+import type { PersianDate } from '@/modules/timeline/PersianDate'
 import texturePatternImg from '@/assets/images/Texture-01-xs.png'
 import {
   TaskListRoot,
@@ -26,8 +27,7 @@ const emit = defineEmits<{
   (e: 'toggle', taskId: string): void
   (e: 'select-task', task: Task): void
   (e: 'long-press-task', task: Task): void
-  (e: 'next-day'): void
-  (e: 'prev-day'): void
+  (e: 'open-calendar', date: PersianDate): void
 }>()
 
 function isTaskSelected(taskId: string) {
@@ -38,20 +38,21 @@ function isTaskSelected(taskId: string) {
 <template>
   <div class="flex h-full w-full flex-col overflow-hidden bg-white select-none">
     <!-- Day Header with soft elevation shadow over the task content below -->
-    <header class="relative z-20 flex-shrink-0 border-b border-slate-100/80 bg-white/95 px-5 py-4 backdrop-blur-md shadow-sm shadow-slate-900/5">
+    <header class="relative z-20 flex-shrink-0 border-b border-slate-100/80 bg-white/95 px-5 py-3.5 backdrop-blur-md shadow-sm shadow-slate-900/5">
       <div class="mx-auto flex max-w-2xl items-center justify-between gap-3">
-        <!-- Date Info & Badge -->
-        <div class="flex items-center gap-2.5">
+        <!-- Right side in RTL: Calendar Icon Button in the right corner, followed by Weekday & Date Info -->
+        <div class="flex items-center gap-3">
+          <!-- Calendar Icon Button: Larger size, located in the right corner of the header -->
           <button
             type="button"
-            class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-slate-200 active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-slate-100"
+            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 transition hover:bg-slate-200 active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-slate-100 shadow-2xs"
             :disabled="isSelectionMode"
-            aria-label="روز قبل"
-            @click="!isSelectionMode && emit('prev-day')"
+            aria-label="مشاهده در تقویم"
+            title="مشاهده در تقویم"
+            @click="!isSelectionMode && emit('open-calendar', day.date)"
           >
-            <!-- In Persian RTL: arrow pointing right goes to past / previous day -->
-            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           </button>
 
@@ -84,22 +85,6 @@ function isTaskSelected(taskId: string) {
             </div>
             <p class="text-xs text-slate-400 mt-0.5">{{ day.date.formatJalali() }}</p>
           </div>
-        </div>
-
-        <!-- Next Day Arrow -->
-        <div class="flex items-center gap-2">
-          <button
-            type="button"
-            class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-slate-200 active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-slate-100"
-            :disabled="isSelectionMode"
-            aria-label="روز بعد"
-            @click="!isSelectionMode && emit('next-day')"
-          >
-            <!-- In Persian RTL: arrow pointing left goes to future / next day -->
-            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
         </div>
       </div>
     </header>

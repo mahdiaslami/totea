@@ -75,6 +75,37 @@ export const useTimelineStore = defineStore('timeline', () => {
     setWindowAroundDate(PersianDate.today())
   }
 
+  function appendDays(count = 2) {
+    if (days.value.length === 0) return
+    const lastDate = days.value[days.value.length - 1].date
+    const newItems: DayItem[] = []
+    for (let i = 1; i <= count; i++) {
+      const d = PersianDate.addDays(lastDate, i)
+      newItems.push({
+        date: d,
+        tasks: getTasksForDate(d),
+      })
+    }
+    days.value = [...days.value, ...newItems]
+  }
+
+  function prependDays(count = 2): number {
+    if (days.value.length === 0) return currentDayIndex.value
+    const firstDate = days.value[0].date
+    const newItems: DayItem[] = []
+    for (let i = count; i >= 1; i--) {
+      const d = PersianDate.addDays(firstDate, -i)
+      newItems.push({
+        date: d,
+        tasks: getTasksForDate(d),
+      })
+    }
+    days.value = [...newItems, ...days.value]
+    currentDayIndex.value += count
+    todayIndex.value = days.value.findIndex((d) => d.date.isToday())
+    return currentDayIndex.value
+  }
+
   function shiftDaysForward(count = 2): number {
     if (days.value.length === 0) return currentDayIndex.value
     const currentActiveTs = activeDateTimestamp.value
@@ -251,6 +282,8 @@ export const useTimelineStore = defineStore('timeline', () => {
     isViewingToday,
     setWindowAroundDate,
     recenterAroundDate,
+    appendDays,
+    prependDays,
     shiftDaysForward,
     shiftDaysBackward,
     setTransitionDays,
