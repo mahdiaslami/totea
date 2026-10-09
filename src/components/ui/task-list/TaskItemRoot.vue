@@ -133,12 +133,12 @@ provide('taskitem', {
 <template>
   <li
     data-task-item="true"
-    class="relative overflow-hidden rounded-xl transition-all duration-200 select-none cursor-pointer"
+    class="relative overflow-hidden rounded-2xl transition-all duration-200 select-none cursor-pointer active:scale-[0.99]"
     style="-webkit-touch-callout: none; -webkit-user-select: none; user-select: none;"
     :class="[
       isSelected
         ? 'ring-2 ring-sky-500 bg-sky-50/90 shadow-md scale-[1.01]'
-        : 'border border-slate-100/80 bg-white shadow-xs hover:border-slate-200/90'
+        : 'border border-slate-200/70 bg-white/95 backdrop-blur-xs shadow-sm hover:border-slate-300 hover:shadow-md'
     ]"
     @touchstart="onTouchStart"
     @touchmove="onTouchMove"
