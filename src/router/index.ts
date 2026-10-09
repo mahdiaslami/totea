@@ -21,16 +21,22 @@ const router = createRouter({
       meta: { index: 1, title: 'تقویم' },
     },
     {
+      path: '/lists',
+      name: 'lists',
+      component: () => import('../views/ListsView.vue'),
+      meta: { index: 2, title: 'لیست‌ها' },
+    },
+    {
       path: '/goals',
       name: 'goals',
       component: () => import('../views/GoalsView.vue'),
-      meta: { index: 2, title: 'اهداف' },
+      meta: { index: 3, title: 'اهداف' },
     },
     {
       path: '/settings',
       name: 'settings',
       component: () => import('../views/SettingsView.vue'),
-      meta: { index: 3, title: 'تنظیمات' },
+      meta: { index: 4, title: 'تنظیمات' },
     },
     {
       path: '/:pathMatch(.*)*',

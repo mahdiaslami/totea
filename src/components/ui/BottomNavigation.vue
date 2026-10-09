@@ -26,6 +26,13 @@ const tabs: NavTab[] = [
     icon: 'calendar',
   },
   {
+    id: 'lists',
+    name: 'lists',
+    label: 'لیست‌ها',
+    path: '/lists',
+    icon: 'lists',
+  },
+  {
     id: 'goals',
     name: 'goals',
     label: 'اهداف',
@@ -50,6 +57,7 @@ const activeTabId = computed(() => {
     return 'timeline'
   }
   if (currentPath.startsWith('/calendar')) return 'calendar'
+  if (currentPath.startsWith('/lists')) return 'lists'
   if (currentPath.startsWith('/goals')) return 'goals'
   if (currentPath.startsWith('/settings')) return 'settings'
   return 'timeline'
@@ -126,7 +134,23 @@ function navigateTo(tab: NavTab) {
             />
           </svg>
 
-          <!-- 3. اهداف (Goals) -->
+          <!-- 3. لیست‌ها (Lists) -->
+          <svg
+            v-else-if="tab.icon === 'lists'"
+            class="h-5 w-5 transition-transform duration-200"
+            :class="activeTabId === tab.id ? 'stroke-[2.2]' : 'stroke-[1.8]'"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+            />
+          </svg>
+
+          <!-- 4. اهداف (Goals) -->
           <svg
             v-else-if="tab.icon === 'goals'"
             class="h-5 w-5 transition-transform duration-200"

@@ -9,11 +9,17 @@ export interface TaskListContext {
   toggle: (taskId: string) => void
 }
 
-const props = defineProps<{
-  day: DayItem
-  past: MaybeRefOrGetter<boolean>
-  toggle: (taskId: string) => void
-}>()
+const props = withDefaults(
+  defineProps<{
+    day: DayItem
+    past: MaybeRefOrGetter<boolean>
+    toggle: (taskId: string) => void
+    hasOtherContent?: boolean
+  }>(),
+  {
+    hasOtherContent: false,
+  }
+)
 
 provide('tasklist', {
   day: props.day,
@@ -27,8 +33,8 @@ provide('tasklist', {
   <ul v-if="day.tasks.length" class="space-y-2.5 pb-28">
     <slot />
   </ul>
-  <!-- When there are no tasks: center the sleeping character vertically & horizontally and make it larger -->
-  <div v-else class="flex flex-1 w-full flex-col items-center justify-center my-auto py-8 select-none">
+  <!-- When there are no tasks and no other content: center the sleeping character vertically & horizontally -->
+  <div v-else-if="!hasOtherContent" class="flex flex-1 w-full flex-col items-center justify-center my-auto py-8 select-none">
     <div class="flex flex-col items-center justify-center max-w-sm px-4 text-center">
       <img
         :src="sleepingCharacterImg"
