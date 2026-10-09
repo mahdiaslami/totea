@@ -159,6 +159,13 @@ function handleDeleteItem(itemId: string) {
   listsStore.deleteListItem(activeList.value.id, itemId)
 }
 
+function getScheduledDaysLabel(scheduledDays: number[]): string {
+  if (scheduledDays.length === 0) return 'هیچ روزی'
+  return PERSIAN_WEEKDAYS.filter((w) => scheduledDays.includes(w.dayIndex))
+    .map((w) => w.name)
+    .join('، ')
+}
+
 function openListDetail(listId: string) {
   activeListId.value = listId
   router.replace({ path: '/lists', query: { id: listId } })
@@ -167,21 +174,6 @@ function openListDetail(listId: string) {
 function backToListsOverview() {
   activeListId.value = null
   router.replace({ path: '/lists' })
-}
-
-function getScheduledDaysLabel(scheduledDays: number[]): string {
-  if (scheduledDays.length === 0) return 'بدون روز مشخص'
-  if (scheduledDays.length === 7) return 'هر روز هفته'
-  if (
-    scheduledDays.length === 5 &&
-    [6, 0, 1, 2, 3].every((d) => scheduledDays.includes(d))
-  ) {
-    return 'روزهای کاری (ش تا چ)'
-  }
-  return scheduledDays
-    .map((d) => PERSIAN_WEEKDAYS.find((w) => w.dayIndex === d)?.name)
-    .filter(Boolean)
-    .join('، ')
 }
 </script>
 
@@ -435,82 +427,48 @@ function getScheduledDaysLabel(scheduledDays: number[]): string {
           <div
             v-for="list in listsStore.lists"
             :key="list.id"
-            class="group relative flex flex-col rounded-3xl border border-slate-200/80 bg-white p-5 sm:p-5.5 shadow-xs transition hover:border-slate-300 hover:shadow-md cursor-pointer space-y-3.5"
+            class="group relative flex flex-col rounded-2xl border border-slate-200/70 bg-white/95 backdrop-blur-xs p-3 sm:p-3.5 shadow-sm transition hover:border-slate-300 hover:shadow-md active:scale-[0.99] cursor-pointer"
             @click="openListDetail(list.id)"
           >
             <!-- Card Header: Title & Actions -->
             <div class="flex items-center justify-between gap-3">
               <div class="min-w-0">
-                <h3 class="text-base sm:text-lg font-bold text-slate-800 truncate">
+                <h3 class="text-sm sm:text-base font-normal text-slate-800 truncate">
                   {{ list.title }}
                 </h3>
               </div>
 
-              <!-- Action buttons -->
-              <div class="flex items-center gap-1 shrink-0" @click.stop>
+              <!-- Opposite the title: active-weekdays badge + Open list -->
+              <div class="flex items-center gap-2 shrink-0" @click.stop>
+                <span
+                  class="flex items-center gap-1 rounded-full border border-slate-200/70 bg-slate-50 px-2 py-1"
+                  :title="`فعال در: ${getScheduledDaysLabel(list.scheduledDays)}`"
+                >
+                  <span
+                    v-for="day in PERSIAN_WEEKDAYS"
+                    :key="day.dayIndex"
+                    class="h-1.5 w-1.5 rounded-full transition-colors"
+                    :class="
+                      list.scheduledDays.includes(day.dayIndex)
+                        ? 'bg-sky-500'
+                        : 'bg-slate-300'
+                    "
+                    :title="day.name"
+                  />
+                </span>
+
                 <button
                   type="button"
-                  class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 cursor-pointer focus:outline-none"
-                  title="ویرایش"
-                  @click="openEditModal(list)"
+                  class="flex items-center gap-0.5 text-[11px] font-semibold text-sky-600 transition hover:text-sky-700 cursor-pointer focus:outline-none"
+                  title="مشاهده کارها"
+                  @click="openListDetail(list.id)"
                 >
-                  <svg class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  مشاهده
+                  <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
               </div>
-            </div>
-
-            <!-- Middle: Scheduled Days of Week as Button Group with Equal-Width Buttons -->
-            <div class="space-y-2 pt-2 border-t border-slate-100">
-              <div class="flex items-center justify-between text-xs sm:text-sm text-slate-500">
-                <span class="font-medium text-slate-600">روزهای فعال در هفته:</span>
-                <span class="text-slate-400 font-normal">
-                  {{ getScheduledDaysLabel(list.scheduledDays) }}
-                </span>
-              </div>
-
-              <!-- Equal-Width Button Group -->
-              <div class="grid grid-cols-7 w-full rounded-2xl border border-slate-200/80 bg-slate-50 p-1 gap-1">
-                <div
-                  v-for="day in PERSIAN_WEEKDAYS"
-                  :key="day.dayIndex"
-                  class="flex items-center justify-center py-2 text-center text-xs sm:text-sm transition rounded-xl"
-                  :class="
-                    list.scheduledDays.includes(day.dayIndex)
-                      ? 'bg-sky-600 text-white font-bold shadow-xs'
-                      : 'text-slate-400 font-normal hover:text-slate-600'
-                  "
-                  :title="day.name"
-                >
-                  {{ day.shortName }}
-                </div>
-              </div>
-            </div>
-
-            <!-- Footer: Progress Bar and Stats -->
-            <div class="pt-2 flex items-center justify-between gap-4 text-xs sm:text-sm text-slate-600">
-              <div class="flex items-center gap-3 flex-1">
-                <div class="h-2 flex-1 rounded-full bg-slate-100 overflow-hidden">
-                  <div
-                    class="h-full rounded-full transition-all duration-300 bg-sky-500"
-                    :style="{
-                      width: `${list.items.length ? (list.items.filter((i) => i.done).length / list.items.length) * 100 : 0}%`,
-                    }"
-                  />
-                </div>
-                <span class="font-bold text-slate-700 tabular-nums shrink-0">
-                  {{ toPersianDigits(list.items.filter((i) => i.done).length) }} از {{ toPersianDigits(list.items.length) }}
-                </span>
-              </div>
-
-              <!-- Open arrow indicator -->
-              <span class="flex items-center gap-1.5 font-semibold text-sky-600 shrink-0">
-                مشاهده کارها
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-                </svg>
-              </span>
             </div>
           </div>
         </div>
