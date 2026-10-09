@@ -64,7 +64,7 @@ const activeTabId = computed(() => {
 })
 
 function navigateTo(tab: NavTab) {
-  if (activeTabId.value === tab.id) return
+  if (route.path === tab.path) return
   router.push(tab.path)
 }
 </script>

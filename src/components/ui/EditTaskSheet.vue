@@ -1,20 +1,20 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onUnmounted } from 'vue'
 import type { PersianDate } from '@/modules/timeline/PersianDate'
+import type { Task } from '@/modules/timeline/date'
 
 const props = withDefaults(
   defineProps<{
     modelValue: boolean
+    task: Task | { id: string; title: string; done?: boolean } | null
     targetDate?: PersianDate | null
     customTitle?: string
     customSubtitle?: string
-    customBadge?: string
   }>(),
   {
     targetDate: null,
     customTitle: '',
     customSubtitle: '',
-    customBadge: '',
   }
 )
 
@@ -26,9 +26,6 @@ const emit = defineEmits<{
 const taskInput = ref('')
 const inputRef = ref<HTMLInputElement | null>(null)
 
-// وقتی کیبورد باز میشود مرورگر برای نشان دادن اینپوت فوکوس‌شده سند را
-// اسکرول میکند. اپ روی viewport قفل است، پس هر اسکرولِ سند غلط است و
-// زبونه را از دید خارج میکند — تا زمانی که باز است، سند را روی صفر نگه می‌داریم.
 function pinViewport() {
   if (window.scrollY > 0 || document.documentElement.scrollTop > 0 || document.body.scrollTop > 0) {
     window.scrollTo(0, 0)
@@ -41,13 +38,13 @@ watch(
   () => props.modelValue,
   (isOpen) => {
     if (isOpen) {
-      taskInput.value = ''
+      taskInput.value = props.task?.title || ''
       document.body.style.overflow = 'hidden'
       window.addEventListener('scroll', pinViewport, { passive: true })
       pinViewport()
       nextTick(() => {
-        // preventScroll: فوکوس خودکار نباید سند یا زبونه را جابجا کند
         inputRef.value?.focus({ preventScroll: true })
+        inputRef.value?.select()
       })
     } else {
       document.body.style.overflow = ''
@@ -113,45 +110,27 @@ function handleSubmit() {
             <div class="mx-auto mb-4 h-1.5 w-12 rounded-full bg-slate-200" />
 
             <!-- Header information -->
-            <div v-if="targetDate || customTitle" class="mb-4 flex items-center justify-between">
+            <div class="mb-4 flex items-center justify-between">
               <div class="flex items-center gap-2 min-w-0">
-                <span
-                  v-if="targetDate"
-                  class="flex items-center justify-center rounded-full px-2.5 py-1 text-xs font-bold shrink-0"
-                  :class="
-                    targetDate.isToday()
-                      ? 'bg-sky-100 text-sky-700'
-                      : targetDate.isTomorrow()
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-indigo-100 text-indigo-700'
-                  "
-                >
-                  {{ targetDate.getRelativeLabel() }}
+                <span class="flex items-center justify-center rounded-full bg-sky-100 px-2.5 py-1 text-xs font-bold text-sky-700 shrink-0">
+                  ویرایش کار
                 </span>
-                <span
-                  v-else-if="customBadge"
-                  class="flex items-center justify-center rounded-full bg-sky-100 px-2.5 py-1 text-xs font-bold text-sky-700 shrink-0"
-                >
-                  {{ customBadge }}
+                <span v-if="targetDate" class="text-sm font-bold text-slate-800">
+                  {{ targetDate.weekdayName }}، {{ targetDate.formatJalali() }}
                 </span>
-                <div class="min-w-0">
-                  <span v-if="targetDate" class="text-sm font-bold text-slate-800">
-                    {{ targetDate.weekdayName }}، {{ targetDate.formatJalali() }}
+                <div v-else-if="customTitle" class="min-w-0 flex flex-col">
+                  <span class="text-sm font-bold text-slate-800 truncate">
+                    {{ customTitle }}
                   </span>
-                  <div v-else class="flex flex-col">
-                    <span class="text-sm font-bold text-slate-800 truncate">
-                      {{ customTitle }}
-                    </span>
-                    <span v-if="customSubtitle" class="text-[11px] text-slate-400 font-normal truncate">
-                      {{ customSubtitle }}
-                    </span>
-                  </div>
+                  <span v-if="customSubtitle" class="text-[11px] text-slate-400 font-normal truncate">
+                    {{ customSubtitle }}
+                  </span>
                 </div>
               </div>
 
               <button
                 type="button"
-                class="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors shrink-0"
+                class="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors cursor-pointer shrink-0"
                 @click="close"
                 aria-label="بستن"
               >
@@ -163,15 +142,15 @@ function handleSubmit() {
 
             <form @submit.prevent="handleSubmit" class="space-y-4">
               <div>
-                <label for="task-text-input" class="block text-xs font-semibold text-slate-600 mb-1.5">
-                  توضیح یا عنوان کار جدید:
+                <label for="edit-task-text-input" class="block text-xs font-semibold text-slate-600 mb-1.5">
+                  عنوان یا متن کار:
                 </label>
                 <input
-                  id="task-text-input"
+                  id="edit-task-text-input"
                   ref="inputRef"
                   v-model="taskInput"
                   type="text"
-                  placeholder="مثلا: خرید کتاب، ارسال ایمیل به همکاران..."
+                  placeholder="عنوان کار..."
                   class="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-500/10"
                   required
                 />
@@ -181,16 +160,16 @@ function handleSubmit() {
                 <button
                   type="submit"
                   :disabled="!taskInput.trim()"
-                  class="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-600/25 transition hover:bg-sky-700 disabled:opacity-50 disabled:shadow-none active:scale-[0.98]"
+                  class="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-600/25 transition hover:bg-sky-700 disabled:opacity-50 disabled:shadow-none active:scale-[0.98] cursor-pointer"
                 >
-                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
-                  ثبت کار
+                  ذخیره تغییرات
                 </button>
                 <button
                   type="button"
-                  class="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50 active:scale-[0.98] transition"
+                  class="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50 active:scale-[0.98] transition cursor-pointer"
                   @click="close"
                 >
                   انصراف

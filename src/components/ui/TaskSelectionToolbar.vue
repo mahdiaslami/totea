@@ -2,10 +2,12 @@
 defineProps<{
   selectedCount: number
   canCopy: boolean
+  canEdit: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'copy'): void
+  (e: 'edit'): void
   (e: 'delete'): void
   (e: 'cancel'): void
 }>()
@@ -45,6 +47,23 @@ const emit = defineEmits<{
           <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
         </svg>
         <span>کپی</span>
+      </button>
+
+      <div class="h-4 w-[1px] bg-slate-200" />
+
+      <!-- Edit Button (Active only when 1 task selected, next to Delete) -->
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-medium transition-all active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
+        :class="canEdit ? 'text-slate-700 hover:bg-slate-100 active:bg-slate-200' : 'text-slate-400'"
+        :disabled="!canEdit"
+        :title="canEdit ? 'ویرایش کار' : 'ویرایش تنها برای یک کار مجاز است'"
+        @click="emit('edit')"
+      >
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+        <span>ویرایش</span>
       </button>
 
       <div class="h-4 w-[1px] bg-slate-200" />

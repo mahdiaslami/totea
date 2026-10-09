@@ -47,7 +47,7 @@ function getCompletedCount(listId: string): number {
 
 function navigateToList(listId: string) {
   if (props.isSelectionMode) return
-  router.push({ path: '/lists', query: { id: listId } })
+  router.push(`/lists/${listId}`)
 }
 
 function isTaskSelected(taskId: string) {
@@ -62,16 +62,16 @@ function isTaskSelected(taskId: string) {
       <div class="mx-auto flex max-w-2xl items-center justify-between gap-3">
         <!-- Right side in RTL: Calendar Icon Button in the right corner, followed by Weekday & Date Info -->
         <div class="flex items-center gap-3">
-          <!-- Calendar Icon Button: Larger size, located in the right corner of the header -->
+          <!-- Calendar Icon Button: Matches arrow button in CalendarView in size, background and color -->
           <button
             type="button"
-            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 transition hover:bg-slate-200 active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-slate-100 shadow-2xs"
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-slate-200 active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-slate-100"
             :disabled="isSelectionMode"
             aria-label="مشاهده در تقویم"
             title="مشاهده در تقویم"
             @click="!isSelectionMode && emit('open-calendar', day.date)"
           >
-            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           </button>

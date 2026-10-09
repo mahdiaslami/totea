@@ -175,6 +175,20 @@ export class PersianDate {
     return PersianDate.startOfDay(this).getTime() < PersianDate.startOfDay(PersianDate.today()).getTime()
   }
 
+  isHoliday(): boolean {
+    // Friday is the weekly holiday in Iranian calendar
+    if (this.value.getDay() === 5) return true
+
+    // Standard fixed official solar holidays in Iran
+    const j = this.toJalali()
+    if (j.month === 1 && j.day >= 1 && j.day <= 4) return true // نوروز
+    if (j.month === 1 && (j.day === 12 || j.day === 13)) return true // ۱۲ و ۱۳ فروردین
+    if (j.month === 3 && (j.day === 14 || j.day === 15)) return true // ۱۴ و ۱۵ خرداد
+    if (j.month === 11 && j.day === 22) return true // ۲۲ بهمن
+    if (j.month === 12 && j.day === 29) return true // ۲۹ اسفند
+    return false
+  }
+
   getRelativeLabel(): string {
     if (this.isToday()) return 'امروز'
     if (this.isTomorrow()) return 'فردا'

@@ -1,473 +1,160 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   useListsStore,
   PERSIAN_WEEKDAYS,
+  getScheduledDaysLabel,
   type TaskList,
 } from '@/stores/lists'
-import { toPersianDigits, PersianDate } from '@/modules/timeline/PersianDate'
-import { useTimelineStore } from '@/stores/timeline'
+import ListFormSheet from '@/components/ui/ListFormSheet.vue'
+import texturePatternImg from '@/assets/images/Texture-01-xs.png'
+import planningCharacterImg from '@/assets/images/planning_character_01.png'
 
 defineOptions({
   name: 'ListsView',
 })
 
-const route = useRoute()
 const router = useRouter()
 const listsStore = useListsStore()
-const timelineStore = useTimelineStore()
 
-// State for active list detail view
-const activeListId = ref<string | null>(null)
+// State for create/edit bottom sheet (list settings)
+const isListSheetOpen = ref(false)
+const listToEdit = ref<TaskList | null>(null)
 
-// State for create/edit modal
-const isModalOpen = ref(false)
-const editingListId = ref<string | null>(null)
-const formTitle = ref('')
-const formScheduledDays = ref<number[]>([6, 0, 1])
+// Toast notification
+const toastMessage = ref('')
+let toastTimer: ReturnType<typeof setTimeout> | null = null
 
-// State for new item input in detail view
-const newItemTitle = ref('')
-
-// Filter for items in detail view: 'all' | 'pending' | 'done'
-const itemsFilter = ref<'all' | 'pending' | 'done'>('all')
-
-// Synchronize with query parameter (e.g., /lists?id=list-123)
-function syncFromRoute() {
-  const queryId = route.query.id as string | undefined
-  if (queryId && listsStore.lists.some((l) => l.id === queryId)) {
-    activeListId.value = queryId
-  }
+function showToast(msg: string) {
+  toastMessage.value = msg
+  if (toastTimer) clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => {
+    toastMessage.value = ''
+  }, 2000)
 }
 
-onMounted(() => {
-  syncFromRoute()
-})
-
-watch(
-  () => route.query.id,
-  () => {
-    syncFromRoute()
+onBeforeUnmount(() => {
+  if (toastTimer) {
+    clearTimeout(toastTimer)
+    toastTimer = null
   }
-)
-
-const activeList = computed<TaskList | null>(() => {
-  if (!activeListId.value) return null
-  return listsStore.lists.find((l) => l.id === activeListId.value) || null
 })
-
-const filteredItems = computed(() => {
-  if (!activeList.value) return []
-  if (itemsFilter.value === 'pending') {
-    return activeList.value.items.filter((i) => !i.done)
-  }
-  if (itemsFilter.value === 'done') {
-    return activeList.value.items.filter((i) => i.done)
-  }
-  return activeList.value.items
-})
-
-const totalListsCount = computed(() => listsStore.lists.length)
-const totalAllItemsCount = computed(() =>
-  listsStore.lists.reduce((acc, l) => acc + l.items.length, 0)
-)
-const totalDoneItemsCount = computed(() =>
-  listsStore.lists.reduce((acc, l) => acc + l.items.filter((i) => i.done).length, 0)
-)
 
 function openCreateModal() {
-  editingListId.value = null
-  formTitle.value = ''
-  formScheduledDays.value = [6, 0, 1] // شنبه، یکشنبه، دوشنبه پیش‌فرض
-  isModalOpen.value = true
+  listToEdit.value = null
+  isListSheetOpen.value = true
 }
 
-function openEditModal(list: TaskList) {
-  editingListId.value = list.id
-  formTitle.value = list.title
-  formScheduledDays.value = [...list.scheduledDays]
-  isModalOpen.value = true
-}
-
-function closeModal() {
-  isModalOpen.value = false
-  editingListId.value = null
-}
-
-function toggleFormWeekday(dayIndex: number) {
-  if (formScheduledDays.value.includes(dayIndex)) {
-    formScheduledDays.value = formScheduledDays.value.filter((d) => d !== dayIndex)
-  } else {
-    formScheduledDays.value.push(dayIndex)
-  }
-}
-
-function setWeekdayPreset(preset: 'all' | 'workdays' | 'none') {
-  if (preset === 'all') {
-    formScheduledDays.value = [6, 0, 1, 2, 3, 4, 5]
-  } else if (preset === 'workdays') {
-    formScheduledDays.value = [6, 0, 1, 2, 3, 4] // شنبه تا چهارشنبه
-  } else {
-    formScheduledDays.value = []
-  }
-}
-
-function handleSaveList() {
-  if (!formTitle.value.trim()) return
-
-  if (editingListId.value) {
-    listsStore.updateList(editingListId.value, {
-      title: formTitle.value,
-      scheduledDays: formScheduledDays.value,
+function handleSaveList(data: { title: string; scheduledDays: number[] }) {
+  if (listToEdit.value) {
+    listsStore.updateList(listToEdit.value.id, {
+      title: data.title,
+      scheduledDays: data.scheduledDays,
     })
+    showToast('تغییرات لیست ذخیره شد')
   } else {
     const created = listsStore.createList({
-      title: formTitle.value,
-      scheduledDays: formScheduledDays.value,
+      title: data.title,
+      scheduledDays: data.scheduledDays,
     })
-    activeListId.value = created.id
+    showToast('لیست جدید ایجاد شد')
+    router.push(`/lists/${created.id}`)
   }
-  closeModal()
-}
-
-function handleDeleteList(listId: string) {
-  if (confirm('آیا از حذف این لیست مطمئن هستید؟')) {
-    listsStore.deleteList(listId)
-    if (activeListId.value === listId) {
-      activeListId.value = null
-      router.replace({ path: '/lists' })
-    }
-  }
-}
-
-function handleAddItem() {
-  if (!activeList.value || !newItemTitle.value.trim()) return
-  listsStore.addItemToList(activeList.value.id, newItemTitle.value)
-  newItemTitle.value = ''
-}
-
-function handleToggleItem(itemId: string) {
-  if (!activeList.value) return
-  // When toggling, record completion on the active timeline day (or today)
-  const currentTimelineTs = timelineStore.activeDateTimestamp || PersianDate.startOfDay(PersianDate.today()).getTime()
-  listsStore.toggleListItem(activeList.value.id, itemId, currentTimelineTs)
-}
-
-function handleDeleteItem(itemId: string) {
-  if (!activeList.value) return
-  listsStore.deleteListItem(activeList.value.id, itemId)
-}
-
-function getScheduledDaysLabel(scheduledDays: number[]): string {
-  if (scheduledDays.length === 0) return 'هیچ روزی'
-  return PERSIAN_WEEKDAYS.filter((w) => scheduledDays.includes(w.dayIndex))
-    .map((w) => w.name)
-    .join('، ')
 }
 
 function openListDetail(listId: string) {
-  activeListId.value = listId
-  router.replace({ path: '/lists', query: { id: listId } })
-}
-
-function backToListsOverview() {
-  activeListId.value = null
-  router.replace({ path: '/lists' })
+  router.push(`/lists/${listId}`)
 }
 </script>
 
 <template>
   <div class="relative flex h-full w-full flex-col bg-white overflow-hidden select-none" dir="rtl">
-    <!-- View Mode A: List Detail View -->
-    <div v-if="activeList" class="flex h-full w-full flex-col overflow-hidden">
-      <!-- Detail Header -->
-      <header class="flex-shrink-0 border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur-md shadow-sm">
-        <div class="mx-auto flex max-w-2xl items-center justify-between gap-3">
-          <div class="flex items-center gap-3 min-w-0">
-            <!-- Back to lists button -->
-            <button
-              type="button"
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-slate-200 active:scale-95 cursor-pointer focus:outline-none"
-              aria-label="بازگشت به لیست‌ها"
-              title="بازگشت به لیست‌ها"
-              @click="backToListsOverview"
-            >
-              <!-- Arrow right in RTL = return -->
-              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-
-            <!-- List Title -->
-            <div class="min-w-0">
-              <h1 class="text-lg font-bold text-slate-800 truncate">
-                {{ activeList.title }}
-              </h1>
-            </div>
-          </div>
-
-          <!-- Actions: Edit & Delete -->
-          <div class="flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-slate-200 active:scale-95 cursor-pointer focus:outline-none"
-              title="ویرایش تنظیمات لیست"
-              @click="openEditModal(activeList)"
-            >
-              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-slate-200 active:scale-95 cursor-pointer focus:outline-none"
-              title="حذف لیست"
-              @click="handleDeleteList(activeList.id)"
-            >
-              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <!-- Detail Sub-bar: Scheduled days badge & progress -->
-      <div class="border-b border-slate-100/80 bg-slate-50/60 px-5 py-2.5">
-        <div class="mx-auto flex max-w-2xl items-center justify-between text-xs">
-          <!-- Scheduled days pills -->
-          <div class="flex items-center gap-1.5 flex-wrap">
-            <span class="text-slate-500 font-medium ml-1">فعال در:</span>
-            <span
-              v-for="day in PERSIAN_WEEKDAYS"
-              :key="day.dayIndex"
-              class="px-2 py-0.5 rounded-md text-[11px] font-semibold transition"
-              :class="
-                activeList.scheduledDays.includes(day.dayIndex)
-                  ? 'bg-sky-100 text-sky-700 border border-sky-200/80'
-                  : 'bg-white text-slate-300 border border-slate-100'
-              "
-            >
-              {{ day.shortName }}
-            </span>
-          </div>
-
-          <!-- Progress summary -->
-          <div class="flex items-center gap-2 text-slate-600 font-semibold">
-            <span>{{ toPersianDigits(activeList.items.filter((i) => i.done).length) }} از {{ toPersianDigits(activeList.items.length) }}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Add Item Input Bar -->
-      <div class="px-5 py-3 border-b border-slate-100 bg-white">
-        <form class="mx-auto flex max-w-2xl items-center gap-2" @submit.prevent="handleAddItem">
-          <input
-            v-model="newItemTitle"
-            type="text"
-            placeholder="افزودن کار جدید به این لیست..."
-            class="flex-1 rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:border-sky-500 focus:bg-white focus:outline-none transition"
-          />
-          <button
-            type="submit"
-            :disabled="!newItemTitle.trim()"
-            class="rounded-xl bg-sky-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-sky-700 active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            افزودن
-          </button>
-        </form>
-      </div>
-
-      <!-- Filter tabs (همه / باقیمانده / انجام‌شده) -->
-      <div class="px-5 pt-3 pb-1 bg-slate-50/40">
-        <div class="mx-auto flex max-w-2xl items-center gap-2 text-xs">
-          <button
-            type="button"
-            class="px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer"
-            :class="itemsFilter === 'all' ? 'bg-sky-600 text-white shadow-xs' : 'bg-white text-slate-600 hover:bg-slate-100'"
-            @click="itemsFilter = 'all'"
-          >
-            همه ({{ toPersianDigits(activeList.items.length) }})
-          </button>
-          <button
-            type="button"
-            class="px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer"
-            :class="itemsFilter === 'pending' ? 'bg-sky-600 text-white shadow-xs' : 'bg-white text-slate-600 hover:bg-slate-100'"
-            @click="itemsFilter = 'pending'"
-          >
-            باقیمانده ({{ toPersianDigits(activeList.items.filter((i) => !i.done).length) }})
-          </button>
-          <button
-            type="button"
-            class="px-3 py-1.5 rounded-lg font-semibold transition cursor-pointer"
-            :class="itemsFilter === 'done' ? 'bg-sky-600 text-white shadow-xs' : 'bg-white text-slate-600 hover:bg-slate-100'"
-            @click="itemsFilter = 'done'"
-          >
-            انجام‌شده ({{ toPersianDigits(activeList.items.filter((i) => i.done).length) }})
-          </button>
-        </div>
-      </div>
-
-      <!-- Items List -->
-      <main class="flex-1 min-h-0 overflow-y-auto px-5 py-4 pb-24">
-        <div class="mx-auto max-w-2xl space-y-2">
-          <!-- Empty State -->
-          <div
-            v-if="filteredItems.length === 0"
-            class="flex flex-col items-center justify-center py-16 text-center text-slate-400"
-          >
-            <div class="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-3">
-              <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
-              </svg>
-            </div>
-            <p class="text-sm font-medium text-slate-600">کاری در این دسته وجود ندارد</p>
-            <p class="text-xs text-slate-400 mt-1">با فرم بالا می‌توانید کار جدیدی اضافه کنید</p>
-          </div>
-
-          <!-- Items rows -->
-          <div
-            v-for="item in filteredItems"
-            :key="item.id"
-            class="group flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white p-3.5 shadow-xs transition hover:border-slate-200 hover:shadow-sm"
-          >
-            <div class="flex items-center gap-3 min-w-0 flex-1">
-              <!-- Checkbox -->
-              <button
-                type="button"
-                class="flex h-5.5 w-5.5 shrink-0 items-center justify-center rounded-lg border transition-all cursor-pointer focus:outline-none active:scale-90"
-                :class="
-                  item.done
-                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
-                    : 'border-slate-300 bg-white hover:border-slate-400'
-                "
-                :aria-label="item.done ? 'علامت به عنوان انجام‌نشده' : 'علامت به عنوان انجام‌شده'"
-                @click="handleToggleItem(item.id)"
-              >
-                <svg
-                  v-if="item.done"
-                  class="h-3.5 w-3.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  stroke-width="3"
-                >
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </button>
-
-              <!-- Title -->
-              <span
-                class="text-sm transition-all truncate flex-1 cursor-pointer select-text"
-                :class="item.done ? 'text-slate-400 line-through' : 'text-slate-800 font-medium'"
-                @click="handleToggleItem(item.id)"
-              >
-                {{ item.title }}
-              </span>
-            </div>
-
-            <!-- Delete item button -->
-            <button
-              type="button"
-              class="opacity-50 group-hover:opacity-100 flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 cursor-pointer focus:outline-none shrink-0"
-              title="حذف این کار"
-              @click="handleDeleteItem(item.id)"
-            >
-              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </main>
-    </div>
-
-    <!-- View Mode B: Lists Overview (Cards list) -->
-    <div v-else class="relative flex h-full w-full flex-col overflow-hidden">
-      <!-- Overview Header -->
-      <header class="flex-shrink-0 border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur-md shadow-sm">
+    <!-- Lists Overview (Cards list) -->
+    <div class="relative flex h-full w-full flex-col overflow-hidden">
+      <!-- Overview Header matching DayView shadow and styling -->
+      <header class="relative z-20 flex-shrink-0 border-b border-slate-100/80 bg-white/95 px-5 py-4 backdrop-blur-md shadow-sm shadow-slate-900/5">
         <div class="mx-auto flex max-w-2xl items-center justify-between gap-3">
           <div>
             <h1 class="text-xl font-bold text-slate-900">لیست‌ها</h1>
-            <p class="text-xs text-slate-400 mt-0.5">
-              {{ toPersianDigits(totalListsCount) }} لیست • {{ toPersianDigits(totalDoneItemsCount) }} از {{ toPersianDigits(totalAllItemsCount) }} کار انجام شده
+            <p class="text-xs text-slate-500 mt-0.5">
+              دسته‌بندی‌ها و پروژه‌های زمان‌بندی‌شده
             </p>
           </div>
         </div>
       </header>
 
-      <!-- Lists Cards Scrollable List -->
-      <main class="flex-1 min-h-0 overflow-y-auto px-5 py-5 pb-24 bg-slate-50/50">
-        <div class="mx-auto max-w-2xl space-y-4">
-          <!-- Empty State -->
+      <!-- Overview Content with inverted gradient: white corners, more transparent/whitish emerald in center -->
+      <main
+        class="relative z-10 flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 py-5 pb-24 md:px-8 bg-gradient-to-br from-white via-emerald-200/25 to-white"
+        style="-webkit-overflow-scrolling: touch; touch-action: pan-x pan-y;"
+      >
+        <!-- Repeating Texture Overlay -->
+        <div
+          class="pointer-events-none absolute inset-0 opacity-[0.055] mix-blend-multiply"
+          :style="{
+            backgroundImage: `url(${texturePatternImg})`,
+            backgroundRepeat: 'repeat',
+            backgroundSize: 'auto'
+          }"
+        />
+
+        <div class="relative mx-auto flex h-full min-h-full max-w-2xl flex-col">
+          <!-- Empty State: Planning character centered vertically & horizontally (matching DayView) -->
           <div
             v-if="listsStore.lists.length === 0"
-            class="flex flex-col items-center justify-center py-20 text-center text-slate-400"
+            class="flex flex-1 w-full flex-col items-center justify-center my-auto py-8 select-none"
           >
-            <div class="h-14 w-14 rounded-2xl bg-white shadow-xs border border-slate-200/80 flex items-center justify-center text-sky-600 mb-3">
-              <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-              </svg>
+            <div class="flex flex-col items-center justify-center max-w-sm px-4 text-center">
+              <img
+                :src="planningCharacterImg"
+                alt="برنامه چی بود؟"
+                class="w-52 sm:w-64 md:w-72 h-auto object-contain drop-shadow-md opacity-95 transition-transform hover:scale-105 duration-300 pointer-events-none"
+                loading="lazy"
+              />
+              <p
+                class="mt-4 inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-500 shadow-sm"
+              >
+                برنامه چی بود؟
+              </p>
             </div>
-            <h3 class="text-base font-bold text-slate-800">هیچ لیستی وجود ندارد</h3>
-            <p class="text-xs text-slate-400 mt-1 max-w-xs">
-              پروژه‌ها و کارهای چندمرحله‌ای خود را در قالب لیست بسازید و روزهای اجرای آن را در هفته مشخص کنید.
-            </p>
-            <button
-              type="button"
-              class="mt-4 rounded-xl bg-sky-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-sky-700 cursor-pointer"
-              @click="openCreateModal"
-            >
-              ایجاد اولین لیست
-            </button>
           </div>
 
-          <!-- List Card -->
-          <div
-            v-for="list in listsStore.lists"
-            :key="list.id"
-            class="group relative flex flex-col rounded-2xl border border-slate-200/70 bg-white/95 backdrop-blur-xs p-3 sm:p-3.5 shadow-sm transition hover:border-slate-300 hover:shadow-md active:scale-[0.99] cursor-pointer"
-            @click="openListDetail(list.id)"
-          >
-            <!-- Card Header: Title & Actions -->
-            <div class="flex items-center justify-between gap-3">
-              <div class="min-w-0">
-                <h3 class="text-sm sm:text-base font-normal text-slate-800 truncate">
-                  {{ list.title }}
-                </h3>
-              </div>
+          <!-- List Cards -->
+          <div v-else class="space-y-3 pb-24">
+            <div
+              v-for="list in listsStore.lists"
+              :key="list.id"
+              class="group relative flex flex-col rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-3.5 sm:p-4 shadow-sm transition hover:border-slate-300 hover:shadow-md hover:bg-white active:scale-[0.99] cursor-pointer"
+              @click="openListDetail(list.id)"
+            >
+              <!-- Card Header: Title & Active-days Indicator -->
+              <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <h3 class="text-sm sm:text-base font-medium text-slate-800 truncate">
+                    {{ list.title }}
+                  </h3>
+                </div>
 
-              <!-- Opposite the title: active-weekdays badge + Open list -->
-              <div class="flex items-center gap-2 shrink-0" @click.stop>
-                <span
-                  class="flex items-center gap-1 rounded-full border border-slate-200/70 bg-slate-50 px-2 py-1"
-                  :title="`فعال در: ${getScheduledDaysLabel(list.scheduledDays)}`"
-                >
+                <!-- Opposite the title: active-weekdays badge (dot indicator) -->
+                <div class="flex items-center gap-2 shrink-0">
                   <span
-                    v-for="day in PERSIAN_WEEKDAYS"
-                    :key="day.dayIndex"
-                    class="h-1.5 w-1.5 rounded-full transition-colors"
-                    :class="
-                      list.scheduledDays.includes(day.dayIndex)
-                        ? 'bg-sky-500'
-                        : 'bg-slate-300'
-                    "
-                    :title="day.name"
-                  />
-                </span>
-
-                <button
-                  type="button"
-                  class="flex items-center gap-0.5 text-[11px] font-semibold text-sky-600 transition hover:text-sky-700 cursor-pointer focus:outline-none"
-                  title="مشاهده کارها"
-                  @click="openListDetail(list.id)"
-                >
-                  مشاهده
-                  <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
+                    class="flex items-center gap-1 rounded-full border border-slate-200/70 bg-slate-50 px-2 py-1"
+                    :title="`فعال در: ${getScheduledDaysLabel(list.scheduledDays)}`"
+                  >
+                    <span
+                      v-for="day in PERSIAN_WEEKDAYS"
+                      :key="day.dayIndex"
+                      class="h-1.5 w-1.5 rounded-full transition-colors"
+                      :class="
+                        list.scheduledDays.includes(day.dayIndex)
+                          ? 'bg-sky-500'
+                          : 'bg-slate-300'
+                      "
+                      :title="day.name"
+                    />
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -489,105 +176,30 @@ function backToListsOverview() {
       </button>
     </div>
 
-    <!-- Modal: Create / Edit List -->
-    <Transition
-      enter-active-class="transition duration-200 ease-out"
-      enter-from-class="opacity-0 scale-95"
-      enter-to-class="opacity-100 scale-100"
-      leave-active-class="transition duration-150 ease-in"
-      leave-from-class="opacity-100 scale-100"
-      leave-to-class="opacity-0 scale-95"
-    >
-      <div
-        v-if="isModalOpen"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs select-none"
-        @click.self="closeModal"
+    <!-- Create / Edit List Bottom Sheet -->
+    <ListFormSheet
+      v-model="isListSheetOpen"
+      :list="listToEdit"
+      @submit="handleSaveList"
+    />
+
+    <!-- Toast Notification -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="opacity-0 -translate-y-3"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 -translate-y-3"
       >
-        <div class="w-full max-w-md rounded-3xl bg-white p-5 sm:p-6 shadow-2xl border border-slate-100" dir="rtl">
-          <!-- Modal Header -->
-          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-            <h2 class="text-base font-bold text-slate-900">
-              {{ editingListId ? 'ویرایش لیست' : 'ایجاد لیست جدید' }}
-            </h2>
-            <button
-              type="button"
-              class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition cursor-pointer"
-              @click="closeModal"
-            >
-              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <form class="mt-4 space-y-4" @submit.prevent="handleSaveList">
-            <!-- Title -->
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">نام لیست یا پروژه *</label>
-              <input
-                v-model="formTitle"
-                type="text"
-                placeholder="مثال: پروژه کاری شرکت، مطالعه، خرید..."
-                class="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-sm text-slate-800 placeholder-slate-400 focus:border-sky-500 focus:outline-none"
-                autofocus
-                required
-              />
-            </div>
-
-            <!-- Scheduled Days of Week Picker -->
-            <div>
-              <div class="flex items-center justify-between mb-1.5">
-                <label class="block text-xs font-bold text-slate-700">روزهای اجرای این لیست در هفته</label>
-                <div class="flex items-center gap-2 text-[10px] text-sky-600 font-semibold">
-                  <button type="button" class="hover:underline cursor-pointer" @click="setWeekdayPreset('workdays')">کاری</button>
-                  <span>•</span>
-                  <button type="button" class="hover:underline cursor-pointer" @click="setWeekdayPreset('all')">هر روز</button>
-                  <span>•</span>
-                  <button type="button" class="hover:underline cursor-pointer" @click="setWeekdayPreset('none')">پاک کردن</button>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-7 gap-1">
-                <button
-                  v-for="day in PERSIAN_WEEKDAYS"
-                  :key="day.dayIndex"
-                  type="button"
-                  class="flex flex-col items-center justify-center py-2 rounded-xl text-xs font-bold transition cursor-pointer border"
-                  :class="
-                    formScheduledDays.includes(day.dayIndex)
-                      ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
-                      : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                  "
-                  @click="toggleFormWeekday(day.dayIndex)"
-                >
-                  <span>{{ day.shortName }}</span>
-                </button>
-              </div>
-              <p class="text-[11px] text-slate-400 mt-1.5">
-                در این روزها، کارت این لیست در صفحه روزها برای شما نمایش داده می‌شود.
-              </p>
-            </div>
-
-            <!-- Buttons -->
-            <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                class="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-                @click="closeModal"
-              >
-                انصراف
-              </button>
-              <button
-                type="submit"
-                :disabled="!formTitle.trim()"
-                class="rounded-xl bg-sky-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-sky-700 active:scale-95 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {{ editingListId ? 'ذخیره تغییرات' : 'ایجاد لیست' }}
-              </button>
-            </div>
-          </form>
+        <div
+          v-if="toastMessage"
+          class="fixed top-6 left-1/2 -translate-x-1/2 z-50 rounded-full bg-slate-900/90 px-4 py-2 text-xs font-medium text-white shadow-xl backdrop-blur-md"
+        >
+          {{ toastMessage }}
         </div>
-      </div>
-    </Transition>
+      </Transition>
+    </Teleport>
   </div>
 </template>

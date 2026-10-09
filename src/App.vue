@@ -10,6 +10,7 @@ const tabIndices: Record<string, number> = {
   timeline: 0,
   calendar: 1,
   lists: 2,
+  'list-detail': 2.1,
   goals: 3,
   settings: 4,
 }
@@ -46,7 +47,7 @@ router.beforeEach((to, from) => {
       <RouterView v-slot="{ Component, route }">
         <Transition :name="transitionName" @after-enter="resetMainScroll">
           <KeepAlive :include="['TimelineView', 'CalendarView', 'ListsView', 'GoalsView', 'SettingsView']">
-            <component :is="Component" :key="route.name || route.path" class="h-full w-full" />
+            <component :is="Component" :key="route.fullPath" class="h-full w-full" />
           </KeepAlive>
         </Transition>
       </RouterView>

@@ -7,6 +7,7 @@ import { PersianDate } from '../modules/timeline/PersianDate'
 import type { Task, DayItem } from '../modules/timeline/date'
 import DayView from '../components/ui/DayView.vue'
 import AddTaskSheet from '../components/ui/AddTaskSheet.vue'
+import EditTaskSheet from '../components/ui/EditTaskSheet.vue'
 import DeleteConfirmDialog from '../components/ui/DeleteConfirmDialog.vue'
 import TaskSelectionToolbar from '../components/ui/TaskSelectionToolbar.vue'
 
@@ -343,6 +344,28 @@ function exitSelectionMode() {
 // Copy action: copies only task title, allowed only when exactly 1 task is selected
 const canCopy = computed(() => selectedTaskIds.value.length === 1)
 
+// Edit action: allowed only when exactly 1 task is selected
+const canEdit = computed(() => selectedTaskIds.value.length === 1)
+const isEditSheetOpen = ref(false)
+const taskToEdit = ref<Task | null>(null)
+
+function handleOpenEditTask() {
+  if (!canEdit.value || !selectionDay.value) return
+  const currentTaskId = selectedTaskIds.value[0]
+  const task = selectionDay.value.tasks.find((t) => t.id === currentTaskId)
+  if (!task) return
+  taskToEdit.value = task
+  isEditSheetOpen.value = true
+}
+
+function handleConfirmEditTask(newTitle: string) {
+  if (!selectionDay.value || !taskToEdit.value) return
+  store.updateTask(selectionDay.value, taskToEdit.value.id, newTitle)
+  taskToEdit.value = null
+  exitSelectionMode()
+  showToast('کار ویرایش شد')
+}
+
 async function handleCopyTask() {
   if (!canCopy.value || !selectionDay.value) return
   const currentTaskId = selectedTaskIds.value[0]
@@ -549,7 +572,9 @@ onBeforeUnmount(() => {
         v-if="isSelectionMode"
         :selected-count="selectedTaskIds.length"
         :can-copy="canCopy"
+        :can-edit="canEdit"
         @copy="handleCopyTask"
+        @edit="handleOpenEditTask"
         @delete="handleRequestDeleteFromSelection"
         @cancel="exitSelectionMode"
       />
@@ -560,6 +585,14 @@ onBeforeUnmount(() => {
       v-model="isSheetOpen"
       :target-date="selectedTargetDate"
       @submit="handleCreateTask"
+    />
+
+    <!-- Bottom Sheet for Editing Existing Task -->
+    <EditTaskSheet
+      v-model="isEditSheetOpen"
+      :task="taskToEdit"
+      :target-date="selectionDay?.date || null"
+      @submit="handleConfirmEditTask"
     />
 
     <!-- Delete Confirmation Dialog -->

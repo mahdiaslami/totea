@@ -5,13 +5,17 @@ const props = withDefaults(
   defineProps<{
     modelValue: boolean
     title?: string
+    message?: string
     count?: number
     taskTitle?: string
+    confirmButtonText?: string
   }>(),
   {
     count: 1,
     title: '',
+    message: '',
     taskTitle: '',
+    confirmButtonText: '',
   }
 )
 
@@ -86,7 +90,10 @@ function onConfirm() {
           </h3>
 
           <p class="mt-2 text-sm text-slate-500 leading-relaxed">
-            <template v-if="count > 1">
+            <template v-if="message">
+              {{ message }}
+            </template>
+            <template v-else-if="count > 1">
               آیا از حذف این {{ count }} کار اطمینان دارید؟ این عملیات قابل بازگشت نیست.
             </template>
             <template v-else>
@@ -95,7 +102,7 @@ function onConfirm() {
           </p>
 
           <p
-            v-if="count === 1 && taskTitle"
+            v-if="!message && count === 1 && taskTitle"
             class="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 line-clamp-2 border border-slate-100"
           >
             «{{ taskTitle }}»
@@ -108,7 +115,7 @@ function onConfirm() {
               class="flex-1 rounded-2xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-rose-600/20 transition hover:bg-rose-700 active:scale-95 cursor-pointer"
               @click="onConfirm"
             >
-              بله، حذف شود
+              {{ confirmButtonText || 'بله، حذف شود' }}
             </button>
             <button
               type="button"

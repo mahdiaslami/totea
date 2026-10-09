@@ -27,6 +27,12 @@ const router = createRouter({
       meta: { index: 2, title: 'لیست‌ها' },
     },
     {
+      path: '/lists/:id',
+      name: 'list-detail',
+      component: () => import('../views/ListDetailView.vue'),
+      meta: { index: 2.1, title: 'جزئیات لیست' },
+    },
+    {
       path: '/goals',
       name: 'goals',
       component: () => import('../views/GoalsView.vue'),
