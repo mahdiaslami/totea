@@ -8,7 +8,7 @@ import {
   type TaskList,
 } from '@/stores/lists'
 import ListFormSheet from '@/components/ui/ListFormSheet.vue'
-import texturePatternImg from '@/assets/images/Texture-01-xs.png'
+import texturePatternImg from '@/assets/images/Texture-01-xs-green.png'
 import planningCharacterImg from '@/assets/images/planning_character_01.png'
 
 defineOptions({

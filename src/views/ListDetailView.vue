@@ -8,7 +8,7 @@ import {
   type ListItem,
 } from '@/stores/lists'
 import { PersianDate } from '@/modules/timeline/PersianDate'
-import texturePatternImg from '@/assets/images/Texture-01-xs.png'
+import texturePatternImg from '@/assets/images/Texture-01-xs-blue.png'
 import thinkingCharacterImg from '@/assets/images/thinking_character_01.png'
 import AddTaskSheet from '@/components/ui/AddTaskSheet.vue'
 import EditTaskSheet from '@/components/ui/EditTaskSheet.vue'

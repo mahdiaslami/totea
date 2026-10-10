@@ -5,7 +5,7 @@ import type { DayItem } from '@/modules/timeline/date'
 import type { Task } from '@/modules/timeline/date'
 import type { PersianDate } from '@/modules/timeline/PersianDate'
 import { toPersianDigits } from '@/modules/timeline/PersianDate'
-import texturePatternImg from '@/assets/images/Texture-01-xs.png'
+import texturePatternImg from '@/assets/images/Texture-01-xs-blue.png'
 import { useListsStore } from '@/stores/lists'
 import {
   TaskListRoot,
