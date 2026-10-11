@@ -39,11 +39,11 @@ To achieve a 60 FPS smooth transition matching native mobile apps:
   plugins: {
     Keyboard: {
       resize: KeyboardResize.None,
-      resizeOnFullScreen: true,
+      resizeOnFullScreen: false,
     },
   }
   ```
-- **Implication**: Disables automatic DOM/body resizing by Capacitor on mobile platforms, avoiding conflicting resize styles.
+- **Implication**: Disables automatic DOM/body resizing by Capacitor on mobile platforms. Crucially, `resizeOnFullScreen: false` disables Capacitor's native Java layout listener (`possiblyResizeChildOfContent`), which would otherwise manually shrink the Android WebView container when the keyboard opens, causing double-resizing and leaving a large empty gap above the keyboard.
 
 ### 3.3 `index.html` & `src/main.ts`
 - **Viewport**: `<meta name="viewport" content="... interactive-widget=overlays-content">`

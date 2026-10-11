@@ -8,7 +8,7 @@ When working on forms, inputs, modals, or sheets that interact with the software
 - **Always reuse `useKeyboard()`**: Import from `@/composables/useKeyboard`. Do not add custom resize listeners or re-implement keyboard height detection.
 - **Never change `android:windowSoftInputMode="adjustNothing"`** in `android/app/src/main/AndroidManifest.xml` without understanding that `adjustResize` or `adjustPan` re-introduces the Android native 0ms window jump/snap bug.
 - **Do not modify the viewport meta** `interactive-widget=overlays-content` in `index.html`.
-- **Do not modify Capacitor Keyboard resize mode**: It is configured as `KeyboardResize.None` in `capacitor.config.ts`.
+- **Do not modify Capacitor Keyboard configuration**: It must remain `resize: KeyboardResize.None` and `resizeOnFullScreen: false` in `capacitor.config.ts`. Enabling `resizeOnFullScreen: true` causes Capacitor's native Java layout listener (`possiblyResizeChildOfContent`) to forcibly shrink the Android WebView container, leading to double-resizing and a large empty white space above the keyboard.
 
 ### Modal & Bottom Sheet Guidelines
 - **Stagger input focus**: When displaying an animated bottom sheet or modal, delay `input.focus()` by ~260ms until the entrance transition has finished to prevent collision between the sheet animation and the keyboard opening.
