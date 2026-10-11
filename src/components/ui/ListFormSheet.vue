@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import {
   PERSIAN_WEEKDAYS,
   getScheduledDaysLabel,
@@ -38,17 +38,22 @@ const isWorkdaysSelected = computed(() => {
   )
 })
 
-function pinViewport() {
-  if (window.scrollY > 0 || document.documentElement.scrollTop > 0 || document.body.scrollTop > 0) {
-    window.scrollTo(0, 0)
-    document.documentElement.scrollTop = 0
-    document.body.scrollTop = 0
+let focusTimeout: ReturnType<typeof setTimeout> | null = null
+
+function focusInput() {
+  if (inputRef.value) {
+    inputRef.value.focus({ preventScroll: true })
   }
 }
 
 watch(
   () => props.modelValue,
   (isOpen) => {
+    if (focusTimeout) {
+      clearTimeout(focusTimeout)
+      focusTimeout = null
+    }
+
     if (isOpen) {
       if (props.list) {
         titleInput.value = props.list.title
@@ -58,24 +63,27 @@ watch(
         selectedDays.value = [6, 0, 1] // پیش‌فرض: شنبه، یکشنبه، دوشنبه
       }
       document.body.style.overflow = 'hidden'
-      window.addEventListener('scroll', pinViewport, { passive: true })
-      pinViewport()
-      nextTick(() => {
-        inputRef.value?.focus({ preventScroll: true })
-      })
+      // Delay focus slightly (220ms) so sheet slide-up finishes smoothly
+      // without colliding with the keyboard opening animation
+      focusTimeout = setTimeout(() => {
+        if (props.modelValue) {
+          focusInput()
+        }
+      }, 220)
     } else {
+      inputRef.value?.blur()
       document.body.style.overflow = ''
-      window.removeEventListener('scroll', pinViewport)
     }
   }
 )
 
 onUnmounted(() => {
+  if (focusTimeout) clearTimeout(focusTimeout)
   document.body.style.overflow = ''
-  window.removeEventListener('scroll', pinViewport)
 })
 
 function close() {
+  inputRef.value?.blur()
   emit('update:modelValue', false)
 }
 
@@ -142,7 +150,10 @@ function handleSubmit() {
           leave-to-class="translate-y-full"
         >
           <div
-            class="relative z-10 w-full max-w-xl mx-auto rounded-t-3xl bg-white p-5 pb-8 shadow-2xl transition-all border-t border-slate-100 sm:pb-6"
+            class="relative z-10 w-full max-w-xl mx-auto rounded-t-3xl bg-white p-5 shadow-2xl border-t border-slate-100 transition-[padding-bottom] duration-300 ease-out"
+            :style="{
+              paddingBottom: 'max(calc(env(keyboard-inset-height, 0px) + 1.5rem), 2rem)'
+            }"
             @click.stop
           >
             <!-- Pull bar indicator -->
