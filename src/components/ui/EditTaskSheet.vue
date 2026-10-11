@@ -2,6 +2,7 @@
 import { ref, watch, onUnmounted } from 'vue'
 import type { PersianDate } from '@/modules/timeline/PersianDate'
 import type { Task } from '@/modules/timeline/date'
+import { useKeyboard } from '@/composables/useKeyboard'
 
 const props = withDefaults(
   defineProps<{
@@ -22,6 +23,8 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
   (e: 'submit', title: string): void
 }>()
+
+const { keyboardHeight, hideKeyboard } = useKeyboard()
 
 const taskInput = ref('')
 const inputRef = ref<HTMLInputElement | null>(null)
@@ -46,14 +49,15 @@ watch(
     if (isOpen) {
       taskInput.value = props.task?.title || ''
       document.body.style.overflow = 'hidden'
-      // Delay focus slightly (220ms) so sheet slide-up finishes smoothly
-      // without colliding with the keyboard opening animation
+      // Delay focus slightly (260ms) until sheet entrance animation finishes
+      // so sheet slide-up does not clash with the keyboard opening animation
       focusTimeout = setTimeout(() => {
         if (props.modelValue) {
           focusInput()
         }
-      }, 220)
+      }, 260)
     } else {
+      hideKeyboard()
       inputRef.value?.blur()
       document.body.style.overflow = ''
     }
@@ -66,6 +70,7 @@ onUnmounted(() => {
 })
 
 function close() {
+  hideKeyboard()
   inputRef.value?.blur()
   emit('update:modelValue', false)
 }
@@ -111,9 +116,11 @@ function handleSubmit() {
           leave-to-class="translate-y-full"
         >
           <div
-            class="relative z-10 w-full max-w-xl mx-auto rounded-t-3xl bg-white p-5 shadow-2xl border-t border-slate-100 transition-[padding-bottom] duration-300 ease-out"
+            class="relative z-10 w-full max-w-xl mx-auto rounded-t-3xl bg-white p-5 shadow-2xl border-t border-slate-100 will-change-[padding-bottom] transition-[padding-bottom] duration-300 ease-[cubic-bezier(0.2,0,0,1)]"
             :style="{
-              paddingBottom: 'max(calc(env(keyboard-inset-height, 0px) + 1.5rem), 2rem)'
+              paddingBottom: keyboardHeight > 0
+                ? `calc(${keyboardHeight}px + 1.25rem)`
+                : 'max(calc(env(safe-area-inset-bottom, 0px) + 1.5rem), 2rem)'
             }"
             @click.stop
           >

@@ -1,4 +1,5 @@
 import type { CapacitorConfig } from '@capacitor/cli';
+import { KeyboardResize } from '@capacitor/keyboard';
 
 const config: CapacitorConfig = {
   appId: 'com.totea.app',
@@ -11,6 +12,12 @@ const config: CapacitorConfig = {
     buildOptions: {
       keystorePath: undefined,
       keystoreAlias: undefined,
+    },
+  },
+  plugins: {
+    Keyboard: {
+      resize: KeyboardResize.None,
+      resizeOnFullScreen: true,
     },
   },
 };
