@@ -5,11 +5,5 @@
 	"server": {
 		"androidScheme": "https"
 	},
-	"android": {},
-	"plugins": {
-		"Keyboard": {
-			"resize": "none",
-			"resizeOnFullScreen": false
-		}
-	}
+	"android": {}
 }
