@@ -30,6 +30,8 @@ export const PERSIAN_WEEKDAYS = [
   { dayIndex: 5, name: 'جمعه', shortName: 'ج' },
 ]
 
+export const MAX_LIST_TITLE_LENGTH = 30
+
 export function getScheduledDaysLabel(scheduledDays: number[]): string {
   if (!scheduledDays || scheduledDays.length === 0) return 'هیچ روزی'
   if (scheduledDays.length === 7) return 'تمام هفته'
@@ -165,7 +167,7 @@ export const useListsStore = defineStore('lists', () => {
   }): TaskList {
     const newList: TaskList = {
       id: 'list-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
-      title: data.title.trim(),
+      title: data.title.trim().slice(0, MAX_LIST_TITLE_LENGTH),
       scheduledDays: data.scheduledDays || [6, 0, 1],
       items: [],
       createdAt: Date.now(),
@@ -181,7 +183,7 @@ export const useListsStore = defineStore('lists', () => {
   ) {
     const list = lists.value.find((l) => l.id === id)
     if (!list) return
-    if (updates.title !== undefined) list.title = updates.title.trim()
+    if (updates.title !== undefined) list.title = updates.title.trim().slice(0, MAX_LIST_TITLE_LENGTH)
     if (updates.scheduledDays !== undefined) list.scheduledDays = updates.scheduledDays
     persist()
   }

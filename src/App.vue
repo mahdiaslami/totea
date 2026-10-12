@@ -3,9 +3,11 @@ import { ref } from 'vue'
 import { RouterView, useRouter } from 'vue-router'
 import BottomNavigation from './components/ui/BottomNavigation.vue'
 import { setupBackButton } from './composables/useBackButton'
+import { initGlobalKeyboard } from './composables/useKeyboard'
 
 const router = useRouter()
 setupBackButton(router)
+initGlobalKeyboard()
 
 const transitionName = ref('swipe-to-left')
 

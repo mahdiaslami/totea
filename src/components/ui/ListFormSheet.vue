@@ -4,6 +4,7 @@ import { useKeyboard } from '@/composables/useKeyboard'
 import {
   PERSIAN_WEEKDAYS,
   getScheduledDaysLabel,
+  MAX_LIST_TITLE_LENGTH,
   type TaskList,
 } from '@/stores/lists'
 
@@ -110,7 +111,7 @@ function setPreset(preset: 'all' | 'workdays' | 'none') {
 }
 
 function handleSubmit() {
-  const text = titleInput.value.trim()
+  const text = titleInput.value.trim().slice(0, MAX_LIST_TITLE_LENGTH)
   if (!text) return
   emit('submit', {
     title: text,
@@ -197,14 +198,23 @@ function handleSubmit() {
             <form @submit.prevent="handleSubmit" class="space-y-5">
               <!-- List Title Input -->
               <div>
-                <label for="list-title-input" class="block text-xs font-semibold text-slate-700 mb-1.5">
-                  نام لیست یا پروژه:
-                </label>
+                <div class="flex items-center justify-between mb-1.5">
+                  <label for="list-title-input" class="block text-xs font-semibold text-slate-700">
+                    نام لیست یا پروژه:
+                  </label>
+                  <span
+                    class="text-[11px] font-mono transition-colors"
+                    :class="titleInput.length >= MAX_LIST_TITLE_LENGTH ? 'text-rose-500 font-bold' : 'text-slate-400'"
+                  >
+                    {{ titleInput.length }}/{{ MAX_LIST_TITLE_LENGTH }}
+                  </span>
+                </div>
                 <input
                   id="list-title-input"
                   ref="inputRef"
                   v-model="titleInput"
                   type="text"
+                  :maxlength="MAX_LIST_TITLE_LENGTH"
                   placeholder="مثال: کارهای شخصی، پروژه کاری، ورزش و سلامت..."
                   class="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-500/10"
                   required
