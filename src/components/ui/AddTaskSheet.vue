@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from 'vue'
+import { ref, watch, onUnmounted, nextTick } from 'vue'
 import { useKeyboard } from '@/composables/useKeyboard'
 import type { PersianDate } from '@/modules/timeline/PersianDate'
 
@@ -25,14 +25,42 @@ const emit = defineEmits<{
 }>()
 
 const taskInput = ref('')
-const inputRef = ref<HTMLInputElement | null>(null)
+const inputRef = ref<HTMLTextAreaElement | null>(null)
 const { keyboardTransformStyle, hideKeyboard } = useKeyboard()
 
 let focusTimeout: ReturnType<typeof setTimeout> | null = null
 
+function adjustHeight() {
+  const el = inputRef.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = `${el.scrollHeight}px`
+}
+
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    handleSubmit()
+  }
+}
+
+function handleInput() {
+  if (taskInput.value.includes('\n') || taskInput.value.includes('\r')) {
+    taskInput.value = taskInput.value.replace(/[\r\n]+/g, ' ')
+  }
+  adjustHeight()
+}
+
+watch(taskInput, () => {
+  nextTick(() => {
+    adjustHeight()
+  })
+})
+
 function focusInput() {
   if (inputRef.value) {
     inputRef.value.focus({ preventScroll: true })
+    adjustHeight()
   }
 }
 
@@ -47,6 +75,9 @@ watch(
     if (isOpen) {
       taskInput.value = ''
       document.body.style.overflow = 'hidden'
+      nextTick(() => {
+        adjustHeight()
+      })
       // Delay focus slightly (220ms) so sheet slide-up finishes smoothly
       // without colliding with the keyboard opening animation
       focusTimeout = setTimeout(() => {
@@ -74,7 +105,7 @@ function close() {
 }
 
 function handleSubmit() {
-  const text = taskInput.value.trim()
+  const text = taskInput.value.replace(/[\r\n]+/g, ' ').trim()
   if (!text) return
   emit('submit', text)
   close()
@@ -179,14 +210,18 @@ function handleSubmit() {
                   <label for="task-text-input" class="block text-xs font-semibold text-slate-600 mb-1.5">
                     توضیح یا عنوان کار جدید:
                   </label>
-                  <input
+                  <textarea
                     id="task-text-input"
                     ref="inputRef"
                     v-model="taskInput"
-                    type="text"
+                    rows="1"
+                    enterkeyhint="done"
                     placeholder="مثلا: خرید کتاب، ارسال ایمیل به همکاران..."
-                    class="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-500/10"
+                    class="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm leading-6 text-slate-800 placeholder-slate-400 outline-none transition-colors focus:border-sky-500 focus:bg-white focus:ring-4 focus:ring-sky-500/10 resize-none overflow-y-auto whitespace-pre-wrap break-words"
+                    style="min-height: 48px; max-height: 120px;"
                     required
+                    @input="handleInput"
+                    @keydown="handleKeydown"
                   />
                 </div>
 
