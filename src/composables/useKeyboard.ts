@@ -1,6 +1,11 @@
 import { ref, computed, onMounted, onUnmounted, type CSSProperties } from 'vue'
-import { Capacitor, type PluginListenerHandle } from '@capacitor/core'
+import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core'
 import { Keyboard, type KeyboardInfo } from '@capacitor/keyboard'
+
+interface AndroidInsetsPlugin {
+  getNavBarHeight(): Promise<{ height: number }>
+}
+const AndroidInsets = registerPlugin<AndroidInsetsPlugin>('AndroidInsets')
 
 /**
  * Shared singleton state for keyboard across all components.
@@ -9,15 +14,47 @@ import { Keyboard, type KeyboardInfo } from '@capacitor/keyboard'
  */
 const keyboardHeight = ref<number>(0)
 const isKeyboardOpen = ref<boolean>(false)
+const navBarHeight = ref<number>(0)
 
 let activeSubscribers = 0
 let listeners: PluginListenerHandle[] = []
 let viewportHandler: (() => void) | null = null
 
+async function syncNavBarHeight() {
+  if (Capacitor.getPlatform() === 'android') {
+    try {
+      const res = await AndroidInsets.getNavBarHeight()
+      if (res && typeof res.height === 'number') {
+        navBarHeight.value = res.height
+      }
+    } catch {
+      // AndroidInsets fallback
+    }
+    const injected = (window as unknown as { __ANDROID_NAVBAR_HEIGHT__?: number }).__ANDROID_NAVBAR_HEIGHT__
+    if (typeof injected === 'number' && injected > 0) {
+      navBarHeight.value = injected
+    }
+  }
+}
+
+function computeEffectiveKeyboardHeight(rawHeight: number): number {
+  if (rawHeight <= 0) return 0
+  const injected = (window as unknown as { __ANDROID_NAVBAR_HEIGHT__?: number }).__ANDROID_NAVBAR_HEIGHT__
+  const nav = typeof injected === 'number' && injected > 0 ? injected : navBarHeight.value
+  // On Android with virtual navigation bar (3-button navigation),
+  // Android's WindowInsetsCompat.Type.ime() is measured from the bottom of the screen,
+  // which includes the navigation bar height.
+  // Because the WebView bottom sits above the navigation bar, the actual height
+  // the keyboard enters into the WebView is (rawHeight - navBarHeight).
+  return Math.max(0, rawHeight - nav)
+}
+
 function setupNativeListeners() {
+  syncNavBarHeight()
+
   // Listen to keyboardWillShow for immediate, perfectly synchronized animation
   Keyboard.addListener('keyboardWillShow', (info: KeyboardInfo) => {
-    keyboardHeight.value = info.keyboardHeight
+    keyboardHeight.value = computeEffectiveKeyboardHeight(info.keyboardHeight)
     isKeyboardOpen.value = true
   }).then((h) => listeners.push(h))
 
@@ -28,8 +65,9 @@ function setupNativeListeners() {
 
   // Backup listeners in case platform emits didShow/didHide
   Keyboard.addListener('keyboardDidShow', (info: KeyboardInfo) => {
-    if (keyboardHeight.value !== info.keyboardHeight) {
-      keyboardHeight.value = info.keyboardHeight
+    const effective = computeEffectiveKeyboardHeight(info.keyboardHeight)
+    if (keyboardHeight.value !== effective) {
+      keyboardHeight.value = effective
     }
     isKeyboardOpen.value = true
   }).then((h) => listeners.push(h))
