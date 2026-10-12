@@ -83,15 +83,15 @@ function computeEffectiveKeyboardHeight(rawHeight: number): number {
   // If rawHeight is 0 or unmeasured (which can happen on the very first open
   // after app install or update on Android), fallback to the height captured
   // by WindowInsetsAnimationCompat in MainActivity, or localStorage cache.
+  const cached = getCachedHeight()
+  if (cached > 0) {
+    return cached
+  }
+
   const injectedKb = (window as unknown as { __ANDROID_KEYBOARD_HEIGHT__?: number }).__ANDROID_KEYBOARD_HEIGHT__
   if (typeof injectedKb === 'number' && injectedKb > 0) {
     saveCachedHeight(injectedKb)
     return injectedKb
-  }
-
-  const cached = getCachedHeight()
-  if (cached > 0) {
-    return cached
   }
 
   return DEFAULT_FALLBACK_HEIGHT
@@ -177,11 +177,12 @@ export function initGlobalKeyboard() {
   if (typeof window !== 'undefined') {
     window.addEventListener('nativeKeyboardShow', ((e: CustomEvent<{ height: number }>) => {
       const h = e.detail?.height
-      if (typeof h === 'number' && h > 0) {
-        keyboardHeight.value = h
-        isKeyboardOpen.value = true
-        saveCachedHeight(h)
-      }
+      const effective = (typeof h === 'number' && h > 0)
+        ? h
+        : computeEffectiveKeyboardHeight(0)
+      keyboardHeight.value = effective
+      isKeyboardOpen.value = true
+      saveCachedHeight(effective)
     }) as EventListener)
 
     window.addEventListener('nativeKeyboardHide', () => {
@@ -237,6 +238,11 @@ export function useKeyboard() {
   })
 
   async function hideKeyboard() {
+    keyboardHeight.value = 0
+    isKeyboardOpen.value = false
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
     if (Capacitor.isPluginAvailable('Keyboard')) {
       try {
         await Keyboard.hide()
@@ -244,12 +250,6 @@ export function useKeyboard() {
         // Fallback for non-native
       }
     }
-    // Also blur active element if any
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur()
-    }
-    keyboardHeight.value = 0
-    isKeyboardOpen.value = false
   }
 
   async function showKeyboard() {

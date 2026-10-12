@@ -41,6 +41,8 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    private boolean wasImeVisible = false;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(AndroidInsetsPlugin.class);
@@ -64,7 +66,16 @@ public class MainActivity extends BridgeActivity {
 
         ViewCompat.setWindowInsetsAnimationCallback(
             decor,
-            new WindowInsetsAnimationCompat.Callback(WindowInsetsAnimationCompat.Callback.DISPATCH_MODE_STOP) {
+            new WindowInsetsAnimationCompat.Callback(WindowInsetsAnimationCompat.Callback.DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
+                @Override
+                public void onPrepare(@NonNull WindowInsetsAnimationCompat animation) {
+                    if ((animation.getTypeMask() & WindowInsetsCompat.Type.ime()) != 0) {
+                        WindowInsetsCompat rootInsets = ViewCompat.getRootWindowInsets(decor);
+                        wasImeVisible = rootInsets != null && rootInsets.isVisible(WindowInsetsCompat.Type.ime());
+                    }
+                    super.onPrepare(animation);
+                }
+
                 @NonNull
                 @Override
                 public WindowInsetsCompat onProgress(
@@ -80,23 +91,42 @@ public class MainActivity extends BridgeActivity {
                     @NonNull WindowInsetsAnimationCompat animation,
                     @NonNull WindowInsetsAnimationCompat.BoundsCompat bounds
                 ) {
-                    int targetImeHeight = bounds.getUpperBound().bottom;
-                    WindowInsetsCompat rootInsets = ViewCompat.getRootWindowInsets(decor);
-                    int navBarHeight = 0;
-                    if (rootInsets != null) {
-                        navBarHeight = rootInsets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
-                    }
-                    float density = getResources().getDisplayMetrics().density;
-                    int effectiveDp = Math.max(0, Math.round((targetImeHeight - navBarHeight) / density));
+                    if ((animation.getTypeMask() & WindowInsetsCompat.Type.ime()) != 0) {
+                        if (wasImeVisible) {
+                            // Keyboard is closing: dispatch hide event IMMEDIATELY so content animates down without delay
+                            getBridge().executeOnMainThread(() -> {
+                                getBridge().getWebView().evaluateJavascript(
+                                    "window.__ANDROID_KEYBOARD_HEIGHT__ = 0; " +
+                                    "window.dispatchEvent(new CustomEvent('nativeKeyboardHide'));",
+                                    null
+                                );
+                            });
+                        } else {
+                            // Keyboard is opening
+                            int targetImeHeight = bounds.getUpperBound().bottom;
+                            WindowInsetsCompat rootInsets = ViewCompat.getRootWindowInsets(decor);
+                            int navBarHeight = 0;
+                            if (rootInsets != null) {
+                                navBarHeight = rootInsets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
+                            }
+                            float density = getResources().getDisplayMetrics().density;
+                            int effectiveDp = Math.max(0, Math.round((targetImeHeight - navBarHeight) / density));
 
-                    if (effectiveDp > 0) {
-                        getBridge().executeOnMainThread(() -> {
-                            getBridge().getWebView().evaluateJavascript(
-                                "window.__ANDROID_KEYBOARD_HEIGHT__ = " + effectiveDp + "; " +
-                                "window.dispatchEvent(new CustomEvent('nativeKeyboardShow', { detail: { height: " + effectiveDp + " } }));",
-                                null
-                            );
-                        });
+                            // Cold start fix: on very first launch before IME is measured, bounds can be 0.
+                            // Fallback to standard 280dp so bottom sheet never drops behind keyboard.
+                            if (effectiveDp <= 0) {
+                                effectiveDp = 280;
+                            }
+
+                            final int finalDp = effectiveDp;
+                            getBridge().executeOnMainThread(() -> {
+                                getBridge().getWebView().evaluateJavascript(
+                                    "window.__ANDROID_KEYBOARD_HEIGHT__ = " + finalDp + "; " +
+                                    "window.dispatchEvent(new CustomEvent('nativeKeyboardShow', { detail: { height: " + finalDp + " } }));",
+                                    null
+                                );
+                            });
+                        }
                     }
                     return super.onStart(animation, bounds);
                 }
@@ -104,15 +134,32 @@ public class MainActivity extends BridgeActivity {
                 @Override
                 public void onEnd(@NonNull WindowInsetsAnimationCompat animation) {
                     super.onEnd(animation);
-                    WindowInsetsCompat rootInsets = ViewCompat.getRootWindowInsets(decor);
-                    if (rootInsets != null && !rootInsets.isVisible(WindowInsetsCompat.Type.ime())) {
-                        getBridge().executeOnMainThread(() -> {
-                            getBridge().getWebView().evaluateJavascript(
-                                "window.__ANDROID_KEYBOARD_HEIGHT__ = 0; " +
-                                "window.dispatchEvent(new CustomEvent('nativeKeyboardHide'));",
-                                null
-                            );
-                        });
+                    if ((animation.getTypeMask() & WindowInsetsCompat.Type.ime()) != 0) {
+                        WindowInsetsCompat rootInsets = ViewCompat.getRootWindowInsets(decor);
+                        boolean isVisible = rootInsets != null && rootInsets.isVisible(WindowInsetsCompat.Type.ime());
+                        if (!isVisible) {
+                            getBridge().executeOnMainThread(() -> {
+                                getBridge().getWebView().evaluateJavascript(
+                                    "window.__ANDROID_KEYBOARD_HEIGHT__ = 0; " +
+                                    "window.dispatchEvent(new CustomEvent('nativeKeyboardHide'));",
+                                    null
+                                );
+                            });
+                        } else {
+                            int imeHeight = rootInsets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
+                            int navBarHeight = rootInsets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
+                            float density = getResources().getDisplayMetrics().density;
+                            int exactDp = Math.max(0, Math.round((imeHeight - navBarHeight) / density));
+                            if (exactDp > 0) {
+                                getBridge().executeOnMainThread(() -> {
+                                    getBridge().getWebView().evaluateJavascript(
+                                        "window.__ANDROID_KEYBOARD_HEIGHT__ = " + exactDp + "; " +
+                                        "window.dispatchEvent(new CustomEvent('nativeKeyboardShow', { detail: { height: " + exactDp + " } }));",
+                                        null
+                                    );
+                                });
+                            }
+                        }
                     }
                 }
             }
