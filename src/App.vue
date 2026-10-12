@@ -2,8 +2,11 @@
 import { ref } from 'vue'
 import { RouterView, useRouter } from 'vue-router'
 import BottomNavigation from './components/ui/BottomNavigation.vue'
+import { setupBackButton } from './composables/useBackButton'
 
 const router = useRouter()
+setupBackButton(router)
+
 const transitionName = ref('swipe-to-left')
 
 const tabIndices: Record<string, number> = {

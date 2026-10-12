@@ -65,7 +65,22 @@ const activeTabId = computed(() => {
 
 function navigateTo(tab: NavTab) {
   if (route.path === tab.path) return
-  router.push(tab.path)
+
+  const isCurrentDays = route.path === '/' || route.path === '/days' || route.name === 'timeline'
+  const isTargetDays = tab.path === '/'
+
+  if (isTargetDays) {
+    // Navigating back to Days page from bottom nav:
+    // Replace so pressing back does not return to previous tab
+    router.replace('/')
+  } else if (!isCurrentDays) {
+    // Navigating between non-Days tabs (e.g. Calendar -> Lists -> Goals -> Settings):
+    // Replace instead of push so the history stack doesn't accumulate a tab loop
+    router.replace(tab.path)
+  } else {
+    // Moving from Days to another tab
+    router.push(tab.path)
+  }
 }
 </script>
 

@@ -15,6 +15,7 @@ import EditTaskSheet from '@/components/ui/EditTaskSheet.vue'
 import ListFormSheet from '@/components/ui/ListFormSheet.vue'
 import DeleteConfirmDialog from '@/components/ui/DeleteConfirmDialog.vue'
 import TaskSelectionToolbar from '@/components/ui/TaskSelectionToolbar.vue'
+import { registerBackHandler } from '@/composables/useBackButton'
 import {
   TaskItemRoot,
   TaskItemTrigger,
@@ -91,10 +92,41 @@ function showToast(msg: string) {
 }
 
 onBeforeUnmount(() => {
+  unregisterBackHandler()
   if (toastTimer) {
     clearTimeout(toastTimer)
     toastTimer = null
   }
+})
+
+const unregisterBackHandler = registerBackHandler(() => {
+  if (route.name !== 'list-detail') return false
+
+  if (isDeleteTasksDialogOpen.value) {
+    isDeleteTasksDialogOpen.value = false
+    return true
+  }
+  if (isDeleteListDialogOpen.value) {
+    isDeleteListDialogOpen.value = false
+    return true
+  }
+  if (isEditTaskSheetOpen.value) {
+    isEditTaskSheetOpen.value = false
+    return true
+  }
+  if (isAddTaskSheetOpen.value) {
+    isAddTaskSheetOpen.value = false
+    return true
+  }
+  if (isListSheetOpen.value) {
+    isListSheetOpen.value = false
+    return true
+  }
+  if (isSelectionMode.value) {
+    exitSelectionMode()
+    return true
+  }
+  return false
 })
 
 function backToLists() {
@@ -258,18 +290,22 @@ function handleCreateTask(title: string) {
         <div class="mx-auto flex max-w-2xl items-center justify-between gap-3">
           <!-- Right side in RTL: Back button + List Title & Active Days Subtitle -->
           <div class="flex items-center gap-3 min-w-0">
-            <!-- Back to lists button -->
+            <!-- Go to lists button -->
             <button
               type="button"
               class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-slate-200 active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
               :disabled="isSelectionMode"
-              aria-label="بازگشت به لیست‌ها"
-              title="بازگشت به لیست‌ها"
+              aria-label="مشاهده لیست‌ها"
+              title="مشاهده لیست‌ها"
               @click="backToLists"
             >
-              <!-- Arrow right in RTL = return -->
+              <!-- List icon -->
               <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+                />
               </svg>
             </button>
 

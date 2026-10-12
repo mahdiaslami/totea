@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
+import { registerBackHandler } from '@/composables/useBackButton'
 import {
   useListsStore,
   PERSIAN_WEEKDAYS,
@@ -35,10 +36,21 @@ function showToast(msg: string) {
 }
 
 onBeforeUnmount(() => {
+  unregisterBackHandler()
   if (toastTimer) {
     clearTimeout(toastTimer)
     toastTimer = null
   }
+})
+
+const unregisterBackHandler = registerBackHandler(() => {
+  if (router.currentRoute.value.name !== 'lists') return false
+
+  if (isListSheetOpen.value) {
+    isListSheetOpen.value = false
+    return true
+  }
+  return false
 })
 
 function openCreateModal() {

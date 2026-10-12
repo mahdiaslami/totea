@@ -10,6 +10,7 @@ import AddTaskSheet from '../components/ui/AddTaskSheet.vue'
 import EditTaskSheet from '../components/ui/EditTaskSheet.vue'
 import DeleteConfirmDialog from '../components/ui/DeleteConfirmDialog.vue'
 import TaskSelectionToolbar from '../components/ui/TaskSelectionToolbar.vue'
+import { registerBackHandler } from '../composables/useBackButton'
 
 defineOptions({
   name: 'TimelineView',
@@ -465,12 +466,36 @@ onDeactivated(() => {
 })
 
 onBeforeUnmount(() => {
+  unregisterBackHandler()
   isComponentActive.value = false
   cancelRestoreTimer()
   if (toastTimer) {
     clearTimeout(toastTimer)
     toastTimer = null
   }
+})
+
+const unregisterBackHandler = registerBackHandler(() => {
+  if (router.currentRoute.value.path !== '/' && router.currentRoute.value.name !== 'timeline') {
+    return false
+  }
+  if (isDeleteDialogOpen.value) {
+    isDeleteDialogOpen.value = false
+    return true
+  }
+  if (isEditSheetOpen.value) {
+    isEditSheetOpen.value = false
+    return true
+  }
+  if (isSheetOpen.value) {
+    isSheetOpen.value = false
+    return true
+  }
+  if (isSelectionMode.value) {
+    exitSelectionMode()
+    return true
+  }
+  return false
 })
 </script>
 

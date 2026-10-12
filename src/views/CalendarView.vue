@@ -343,7 +343,7 @@ const monthsData = computed(() => {
 function goToTimelineDay(pDate: PersianDate) {
   selectDate(pDate)
   store.setActiveDate(pDate)
-  router.push('/')
+  router.replace('/')
 }
 
 function handleToggleTask(pDate: PersianDate, taskId: string) {

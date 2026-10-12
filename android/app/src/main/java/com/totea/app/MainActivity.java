@@ -29,6 +29,12 @@ public class MainActivity extends BridgeActivity {
             ret.put("height", Math.round(navBarHeight / density));
             call.resolve(ret);
         }
+
+        @PluginMethod
+        public void minimize(PluginCall call) {
+            getActivity().moveTaskToBack(true);
+            call.resolve();
+        }
     }
 
     @Override
