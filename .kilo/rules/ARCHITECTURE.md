@@ -58,3 +58,12 @@ When generating or modifying code, strictly follow this pipeline:
 3. **Enforce Pragmatism:** Do not generate unnecessary Repositories/Entities for simple API passes. Apply the "Rule of 3" for folders.
 4. **Trace Data Flow & Events:** Backend -> HTTP Client (emits event on fail) -> `modules/` Service -> `stores/` -> `components/features/`.
 5. **Never Mix Reactivity:** Ensure zero framework hooks (`useState`, `ref`) exist in `modules/`. If a module needs to affect the UI, it must emit an event or return a result to a Store/App listener.
+
+## 6. Keyboard & Motion Handling (Capacitor & Web)
+To eliminate viewport jumping and jank when the virtual keyboard opens:
+1. **Zero Viewport Resize:** Configure `Keyboard.resize = 'none'` in Capacitor configuration.
+2. **Never Animate Height:** Never animate `height`, `padding-bottom`, or `bottom`. It forces layout reflow in every frame.
+3. **GPU Transform Only:** Shift inputs/drawers using `transform: translate3d(0, -${keyboardHeight}px, 0)` with `will-change: transform`.
+4. **Fast-Start Easing (`ease`):** Always use `transition: transform 280ms ease`. The initial high velocity matches the fast emergence of the keyboard, landing softly into place.
+5. **Decouple Transitions:** Keep `<Transition>` wrapper separate from the child element receiving dynamic keyboard transforms.
+6. **Unified Composable:** Always use `@/composables/useKeyboard`. See `docs/KEYBOARD_HANDLING.md` for full documentation and code patterns.

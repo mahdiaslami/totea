@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
+import { useKeyboard } from '@/composables/useKeyboard'
 import {
   PERSIAN_WEEKDAYS,
   getScheduledDaysLabel,
@@ -24,6 +25,7 @@ const emit = defineEmits<{
 const titleInput = ref('')
 const selectedDays = ref<number[]>([6, 0, 1])
 const inputRef = ref<HTMLInputElement | null>(null)
+const { keyboardTransformStyle, hideKeyboard } = useKeyboard()
 
 const isEditMode = computed(() => Boolean(props.list))
 
@@ -71,6 +73,7 @@ watch(
         }
       }, 220)
     } else {
+      hideKeyboard()
       inputRef.value?.blur()
       document.body.style.overflow = ''
     }
@@ -83,6 +86,7 @@ onUnmounted(() => {
 })
 
 function close() {
+  hideKeyboard()
   inputRef.value?.blur()
   emit('update:modelValue', false)
 }
@@ -150,14 +154,16 @@ function handleSubmit() {
           leave-to-class="translate-y-full"
         >
           <div
-            class="relative z-10 w-full max-w-xl mx-auto rounded-t-3xl bg-white p-5 shadow-2xl border-t border-slate-100 transition-[padding-bottom] duration-300 ease-out"
-            :style="{
-              paddingBottom: 'max(calc(env(keyboard-inset-height, 0px) + 1.5rem), 2rem)'
-            }"
+            class="relative z-10 w-full max-w-xl mx-auto"
             @click.stop
           >
-            <!-- Pull bar indicator -->
-            <div class="mx-auto mb-4 h-1.5 w-12 rounded-full bg-slate-200" />
+            <!-- Drawer Card with Hardware-Accelerated Keyboard Transform -->
+            <div
+              class="rounded-t-3xl bg-white p-5 pb-8 shadow-2xl border-t border-slate-100 max-h-[88vh] overflow-y-auto"
+              :style="keyboardTransformStyle"
+            >
+              <!-- Pull bar indicator -->
+              <div class="mx-auto mb-4 h-1.5 w-12 rounded-full bg-slate-200" />
 
             <!-- Header information -->
             <div class="mb-5 flex items-center justify-between border-b border-slate-100 pb-3">
@@ -319,6 +325,7 @@ function handleSubmit() {
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </Transition>
       </div>

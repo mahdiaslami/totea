@@ -13,6 +13,13 @@ const config: CapacitorConfig = {
       keystoreAlias: undefined,
     },
   },
+  plugins: {
+    Keyboard: {
+      resize: 'none',
+      style: 'LIGHT',
+      resizeOnFullScreen: true,
+    },
+  },
 };
 
 export default config;
