@@ -11,26 +11,51 @@
 
 ---
 
-## ۲. راه‌حل الهام‌گرفته از مخزن `vue-capacitor-ios-chat-demo`
+## ۲. راه‌حل کامل و مهار لایه‌های مختلف تغییر اندازه در اندروید و iOS
 
-راهکار پیاده‌سازی‌شده بر پایه ۴ اصل طلایی است:
+برای اینکه وب‌ویو واقعاً و به هیچ وجه کوچک نشود، باید هر ۴ لایه‌ای که در اندروید سعی در کوچک کردن وب‌ویو دارند را مهار کنیم:
 
-### اصل ۱: غیرفعال‌سازی تغییر اندازهٔ پنجره (`Keyboard.resize = 'none'`)
-در فایل `capacitor.config.ts`، پلاگین کیبورد با مقدار `'none'` تنظیم شده است:
+### لایه ۱: سیستم‌عامل اندروید (`AndroidManifest.xml` و `MainActivity.java`)
+در اندروید، مقدار پیش‌فرض `android:windowSoftInputMode` برابر با `adjustResize` است. وقتی این مقدار تنظیم باشد، سیستم‌عامل پنجرهٔ اکتیویتی (و کل وب‌ویو) را به زور به اندازهٔ بالای کیبورد فشرده می‌کند.
+- **راه‌حل:** تغییر این مقدار به `adjustNothing` در `AndroidManifest.xml`:
+```xml
+android:windowSoftInputMode="adjustNothing"
+```
+و همچنین اعمال صریح در `MainActivity.java`:
+```java
+getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
+```
+با این کار سیستم‌عامل اندروید هیچ دست‌کاری در اندازه یا اسکرول پنجره انجام نمی‌دهد.
+
+### لایه ۲: پلاگین سیستمی SystemBars در Capacitor 8 (`insetsHandling: 'disable'`)
+در کپسیتر نسخه ۸، پلاگین پیش‌فرض `SystemBars` کدی به شکل `v.setPadding(..., keyboardVisible ? imeInsets.bottom : 0)` روی لایه دکور اندروید اجرا می‌کند که باعث اضافه شدن پدینگ معادل ارتفاع کیبورد و کوچک شدن وب‌ویو می‌شد!
+- **راه‌حل:** در `capacitor.config.ts` مقدار `insetsHandling` را غیرفعال می‌کنیم:
 ```ts
-plugins: {
-  Keyboard: {
-    resize: 'none',
-    style: 'LIGHT',
-    resizeOnFullScreen: true,
-  },
+SystemBars: {
+  insetsHandling: 'disable',
 }
 ```
-با این کار، WebView در برابر باز شدن کیبورد دچار شوک و تغییر سایز ناگهانی نمی‌شود و ابعاد صفحه کاملاً ایستا و ثابت باقی می‌ماند.
+
+### لایه ۳: تنظیمات پلاگین کیبورد کپسیتر (`resize: 'none'` و `resizeOnFullScreen: false`)
+تنظیم `resizeOnFullScreen: true` در اندروید یک قابلیت قدیمی برای مجبور کردن وب‌ویو به تغییر سایز در حالت فول‌اسکرین بود (`frameLayoutParams.height = usableHeightNow`) که باید حتماً `false` باشد تا وب‌ویو را دست‌کاری نکند:
+```ts
+Keyboard: {
+  resize: 'none',
+  style: 'LIGHT',
+  resizeOnFullScreen: false,
+}
+```
+
+### لایه ۴: متا تگ Viewport مرورگر (`interactive-widget=overlays-content`)
+در کرومیوم / وب‌ویوی اندروید ۱۰۸ به بعد:
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=overlays-content">
+```
+مقدار `interactive-widget=overlays-content` به موتور مرورگر می‌گوید که کیبورد باید روی محتوا شناور شود و اندازه ویوپورت را تغییر ندهد.
 
 ---
 
-### اصل ۲: انیمیشن فقط با `transform`، هرگز با `height`
+## ۳. حرکت المان‌ها با شتاب سخت‌افزاری (`transform` و `ease`)
 برای جابه‌جا کردن المان ورودی یا Bottom Sheet به بالای کیبورد، **هرگز** از انیمیشن `height` یا `padding-bottom` استفاده نمی‌شود. فقط از:
 ```css
 transform: translate3d(0, -${keyboardHeight}px, 0);

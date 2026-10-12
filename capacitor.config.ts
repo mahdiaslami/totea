@@ -14,10 +14,13 @@ const config: CapacitorConfig = {
     },
   },
   plugins: {
+    SystemBars: {
+      insetsHandling: 'disable',
+    },
     Keyboard: {
       resize: 'none',
       style: 'LIGHT',
-      resizeOnFullScreen: true,
+      resizeOnFullScreen: false,
     },
   },
 };
