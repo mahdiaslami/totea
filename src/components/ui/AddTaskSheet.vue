@@ -21,12 +21,39 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
-  (e: 'submit', title: string): void
+  (e: 'submit', title: string, options?: { isTracked: boolean; allowedDays: number[] }): void
 }>()
 
 const taskInput = ref('')
 const inputRef = ref<HTMLTextAreaElement | null>(null)
 const { keyboardTransformStyle, hideKeyboard } = useKeyboard()
+
+const WEEKDAYS_CONFIG = [
+  { dayIndex: 6, name: 'شنبه', shortName: 'ش' },
+  { dayIndex: 0, name: 'یک‌شنبه', shortName: 'ی' },
+  { dayIndex: 1, name: 'دوشنبه', shortName: 'د' },
+  { dayIndex: 2, name: 'سه‌شنبه', shortName: 'س' },
+  { dayIndex: 3, name: 'چهارشنبه', shortName: 'چ' },
+  { dayIndex: 4, name: 'پنج‌شنبه', shortName: 'پ' },
+  { dayIndex: 5, name: 'جمعه', shortName: 'ج' },
+]
+
+const isTracked = ref(false)
+const selectedAllowedDays = ref<number[]>([6, 0, 1, 2, 3, 4, 5])
+
+function toggleDay(dayIndex: number) {
+  if (selectedAllowedDays.value.includes(dayIndex)) {
+    if (selectedAllowedDays.value.length > 1) {
+      selectedAllowedDays.value = selectedAllowedDays.value.filter((d) => d !== dayIndex)
+    }
+  } else {
+    selectedAllowedDays.value.push(dayIndex)
+  }
+}
+
+function selectAllDays() {
+  selectedAllowedDays.value = [6, 0, 1, 2, 3, 4, 5]
+}
 
 let focusTimeout: ReturnType<typeof setTimeout> | null = null
 
@@ -74,6 +101,8 @@ watch(
 
     if (isOpen) {
       taskInput.value = ''
+      isTracked.value = false
+      selectedAllowedDays.value = [6, 0, 1, 2, 3, 4, 5]
       document.body.style.overflow = 'hidden'
       nextTick(() => {
         adjustHeight()
@@ -107,7 +136,10 @@ function close() {
 function handleSubmit() {
   const text = taskInput.value.replace(/[\r\n]+/g, ' ').trim()
   if (!text) return
-  emit('submit', text)
+  emit('submit', text, {
+    isTracked: isTracked.value,
+    allowedDays: isTracked.value ? [...selectedAllowedDays.value] : [6, 0, 1, 2, 3, 4, 5],
+  })
   close()
 }
 </script>
@@ -223,6 +255,85 @@ function handleSubmit() {
                     @input="handleInput"
                     @keydown="handleKeydown"
                   />
+                </div>
+
+                <!-- Tracked Task Option (تسک پیگیری‌شونده) -->
+                <div class="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-3.5 space-y-3">
+                  <div
+                    class="flex items-center justify-between cursor-pointer select-none"
+                    @click="isTracked = !isTracked"
+                  >
+                    <div class="flex items-center gap-2.5">
+                      <!-- Icon with circular rollover (exactly same size as frame) -->
+                      <div
+                        class="flex h-5 w-5 shrink-0 items-center justify-center transition-colors"
+                        :class="isTracked ? 'text-sky-600' : 'text-slate-400'"
+                      >
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      </div>
+                      <div>
+                        <div class="flex items-center gap-2">
+                          <span class="text-xs font-bold text-slate-800">تسک پیگیری‌شونده</span>
+                          <span
+                            v-if="isTracked"
+                            class="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-700"
+                          >
+                            فعال
+                          </span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 mt-0.5">
+                          انتقال خودکار به روزهای بعد در صورت انجام نشدن
+                        </p>
+                      </div>
+                    </div>
+
+                    <!-- Toggle Switch -->
+                    <div
+                      class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+                      :class="isTracked ? 'bg-sky-600' : 'bg-slate-300'"
+                    >
+                      <span
+                        class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                        :class="isTracked ? '-translate-x-5' : 'translate-x-0'"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- Allowed Weekdays Section (shown when isTracked is true) -->
+                  <div v-if="isTracked" class="pt-2 border-t border-slate-200/80 space-y-2">
+                    <div class="flex items-center justify-between text-xs">
+                      <span class="font-semibold text-slate-700">روزهای مجاز برای انجام کار:</span>
+                      <button
+                        type="button"
+                        class="text-[11px] font-bold text-sky-600 hover:text-sky-700 transition cursor-pointer"
+                        @click.stop="selectAllDays"
+                      >
+                        انتخاب تمام روزها
+                      </button>
+                    </div>
+
+                    <!-- 7 Days Grid: Only the first letter of each day -->
+                    <div class="grid grid-cols-7 gap-1.5">
+                      <button
+                        v-for="wd in WEEKDAYS_CONFIG"
+                        :key="wd.dayIndex"
+                        type="button"
+                        class="flex h-9 items-center justify-center rounded-xl text-center transition-all cursor-pointer active:scale-95"
+                        :class="[
+                          selectedAllowedDays.includes(wd.dayIndex)
+                            ? 'bg-sky-600 text-white font-bold shadow-xs'
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100/80'
+                        ]"
+                        @click.stop="toggleDay(wd.dayIndex)"
+                      >
+                        <span class="text-xs font-bold leading-none">
+                          {{ wd.shortName }}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <div class="flex items-center gap-3 pt-1">

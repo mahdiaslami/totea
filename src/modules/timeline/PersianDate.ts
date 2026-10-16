@@ -121,17 +121,33 @@ interface JalaliParts {
 
 export class PersianDate {
   readonly value: Date
+  private static _customToday: PersianDate | null = null
 
   constructor(input?: Date | string | number) {
     this.value = input ? new Date(input) : new Date()
   }
 
+  static setCustomToday(date: PersianDate | null) {
+    this._customToday = date ? PersianDate.startOfDay(date) : null
+  }
+
+  static getCustomToday(): PersianDate | null {
+    return this._customToday
+  }
+
+  static isCustomTodayActive(): boolean {
+    return this._customToday !== null
+  }
+
   static today(): PersianDate {
-    return new PersianDate()
+    if (this._customToday) {
+      return PersianDate.startOfDay(this._customToday)
+    }
+    return PersianDate.startOfDay(new PersianDate())
   }
 
   static fromJalali(jy: number, jm: number, jd: number): PersianDate {
-    return new PersianDate(jalaliToGregorian(jy, jm, jd))
+    return PersianDate.startOfDay(new PersianDate(jalaliToGregorian(jy, jm, jd)))
   }
 
   static startOfDay(date: PersianDate): PersianDate {
@@ -142,7 +158,9 @@ export class PersianDate {
 
   static addDays(date: PersianDate, amount: number): PersianDate {
     const d = new Date(date.value)
+    d.setHours(12, 0, 0, 0)
     d.setDate(d.getDate() + amount)
+    d.setHours(0, 0, 0, 0)
     return new PersianDate(d)
   }
 

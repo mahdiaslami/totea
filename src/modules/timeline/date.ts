@@ -4,6 +4,11 @@ export interface Task {
   id: string
   title: string
   done: boolean
+  isTracked?: boolean
+  allowedDays?: number[] // Array of JS weekday indices: 6 (شنبه), 0 (یک‌شنبه), 1 (دوشنبه), 2 (سه‌شنبه), 3 (چهارشنبه), 4 (پنج‌شنبه), 5 (جمعه)
+  originalDateTimestamp?: number
+  lastRolloverDateTimestamp?: number
+  rolloverCount?: number
 }
 
 export interface DayItem {

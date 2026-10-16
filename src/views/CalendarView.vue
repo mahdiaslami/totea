@@ -448,10 +448,12 @@ function triggerSyncWithActiveTimelineDay() {
 }
 
 onMounted(() => {
+  store.processRollovers()
   triggerSyncWithActiveTimelineDay()
 })
 
 onActivated(() => {
+  store.processRollovers()
   triggerSyncWithActiveTimelineDay()
 })
 </script>
@@ -791,7 +793,7 @@ onActivated(() => {
                           </svg>
                         </button>
 
-                        <!-- Task Title -->
+                        <!-- Task Title & Tracked Badge -->
                         <span
                           class="text-xs sm:text-sm transition-all truncate flex-1 cursor-pointer"
                           :class="[
@@ -802,6 +804,28 @@ onActivated(() => {
                           @click="goToTimelineDay(dayWithTask.pDate!)"
                         >
                           {{ task.title }}
+                        </span>
+
+                        <span
+                          v-if="task.isTracked"
+                          class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold shrink-0"
+                          :class="
+                            task.done
+                              ? 'bg-slate-200/60 text-slate-500'
+                              : 'bg-amber-100 text-amber-800 border border-amber-200'
+                          "
+                          :title="
+                            task.rolloverCount && task.rolloverCount > 0
+                              ? `تسک پیگیری‌شونده (${toPersianDigits(task.rolloverCount)} بار انتقال)`
+                              : 'تسک پیگیری‌شونده'
+                          "
+                        >
+                          <svg class="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          <span v-if="task.rolloverCount && task.rolloverCount > 0" class="tabular-nums font-bold leading-none">
+                            {{ toPersianDigits(task.rolloverCount) }}
+                          </span>
                         </span>
                       </div>
                     </div>

@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, onActivated, onDeactivated, onBeforeUn
 import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useTimelineStore, BUFFER_DAYS, CENTER_INDEX } from '../stores/timeline'
+import { useDevModeStore } from '../stores/devMode'
 import { PersianDate } from '../modules/timeline/PersianDate'
 import type { Task, DayItem } from '../modules/timeline/date'
 import DayView from '../components/ui/DayView.vue'
@@ -18,6 +19,7 @@ defineOptions({
 
 const router = useRouter()
 const store = useTimelineStore()
+const devModeStore = useDevModeStore()
 const { days } = storeToRefs(store)
 
 function handleOpenCalendar(date: PersianDate) {
@@ -342,25 +344,11 @@ function exitSelectionMode() {
   selectionDay.value = null
 }
 
-// Selection state computeds
-const isSelectionPastDay = computed(() => {
-  return !!selectionDay.value && selectionDay.value.date.isPast()
-})
-
-// Copy action: copies task title to clipboard (identical to standard pages)
+// Copy action: copies only task title, allowed only when exactly 1 task is selected
 const canCopy = computed(() => selectedTaskIds.value.length === 1)
 
-// Edit action: allowed only when exactly 1 task is selected and not in a past day
-const canEdit = computed(() => {
-  if (isSelectionPastDay.value) return false
-  return selectedTaskIds.value.length === 1
-})
-
-// Delete action: not allowed for past days
-const canDelete = computed(() => {
-  if (isSelectionPastDay.value) return false
-  return selectedTaskIds.value.length > 0
-})
+// Edit action: allowed only when exactly 1 task is selected
+const canEdit = computed(() => selectedTaskIds.value.length === 1)
 
 const isEditSheetOpen = ref(false)
 const taskToEdit = ref<Task | null>(null)
@@ -374,9 +362,12 @@ function handleOpenEditTask() {
   isEditSheetOpen.value = true
 }
 
-function handleConfirmEditTask(newTitle: string) {
+function handleConfirmEditTask(
+  newTitle: string,
+  options?: { isTracked: boolean; allowedDays: number[] }
+) {
   if (!selectionDay.value || !taskToEdit.value) return
-  store.updateTask(selectionDay.value, taskToEdit.value.id, newTitle)
+  store.updateTask(selectionDay.value, taskToEdit.value.id, newTitle, options)
   taskToEdit.value = null
   exitSelectionMode()
   showToast('کار ویرایش شد')
@@ -412,7 +403,7 @@ async function handleCopyTask() {
 
 // Delete action from selection toolbar
 function handleRequestDeleteFromSelection() {
-  if (!selectionDay.value || selectedTaskIds.value.length === 0 || isSelectionPastDay.value) return
+  if (!selectionDay.value || selectedTaskIds.value.length === 0) return
   const idSet = new Set(selectedTaskIds.value)
   const targetTasks = selectionDay.value.tasks.filter((t) => idSet.has(t.id))
   if (targetTasks.length === 0) return
@@ -436,11 +427,12 @@ function confirmDeleteTasks() {
 // Floating Add Task logic
 const canAddTask = computed(() => {
   const day = days.value[activeDayIndex.value]
-  return !!day && !day.date.isPast()
+  if (!day) return false
+  return devModeStore.isEnabled || !day.date.isPast()
 })
 
 function openAddTask(date: PersianDate) {
-  if (date.isPast()) return
+  if (date.isPast() && !devModeStore.isEnabled) return
   selectedTargetDate.value = date
   isSheetOpen.value = true
 }
@@ -451,12 +443,16 @@ function handleAddTask() {
   openAddTask(day.date)
 }
 
-function handleCreateTask(title: string) {
+function handleCreateTask(
+  title: string,
+  options?: { isTracked: boolean; allowedDays: number[] }
+) {
   if (!selectedTargetDate.value) return
-  store.addTask(selectedTargetDate.value, title)
+  store.addTask(selectedTargetDate.value, title, options)
 }
 
 onMounted(() => {
+  store.processRollovers()
   isComponentActive.value = true
   nextTick(() => {
     restoreScrollPosition('instant')
@@ -467,6 +463,7 @@ onMounted(() => {
 })
 
 onActivated(() => {
+  store.processRollovers()
   isComponentActive.value = true
   restoreScrollPosition('instant')
 })
@@ -517,6 +514,49 @@ const unregisterBackHandler = registerBackHandler(() => {
 
 <template>
   <div class="relative flex h-full w-full flex-col bg-white overflow-hidden select-none">
+    <!-- Developer Mode Floating Quick Stepper Bar -->
+    <div
+      v-if="devModeStore.isEnabled"
+      class="pointer-events-auto absolute top-2.5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full bg-slate-900/95 px-3 py-1.5 text-xs text-white shadow-xl backdrop-blur-md border border-amber-400/40 select-none transition-all whitespace-nowrap"
+      dir="rtl"
+    >
+      <div class="flex items-center gap-1 text-amber-300 font-bold text-[11px] shrink-0 whitespace-nowrap">
+        <span class="inline-block h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+        <span>تست:</span>
+      </div>
+
+      <span class="text-[11px] font-medium text-slate-200 truncate max-w-[130px] sm:max-w-none whitespace-nowrap">
+        {{ devModeStore.simulatedDate.weekdayName }}، {{ devModeStore.simulatedDate.formatJalali() }}
+      </span>
+
+      <div class="flex items-center gap-1 mr-1 border-r border-slate-700 pr-1.5 shrink-0 whitespace-nowrap">
+        <button
+          type="button"
+          class="rounded-md bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-white/25 active:scale-95 transition cursor-pointer whitespace-nowrap"
+          title="یک روز به عقب"
+          @click="devModeStore.advanceDays(-1)"
+        >
+          -۱ روز
+        </button>
+        <button
+          type="button"
+          class="rounded-md bg-amber-400 px-2 py-0.5 text-[10px] font-bold text-slate-950 hover:bg-amber-300 active:scale-95 transition cursor-pointer shadow-xs whitespace-nowrap"
+          title="یک روز به جلو (انتقال خودکار تسک‌ها)"
+          @click="devModeStore.advanceDays(1)"
+        >
+          +۱ روز
+        </button>
+        <button
+          type="button"
+          class="rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-slate-300 hover:bg-white/20 active:scale-95 transition cursor-pointer whitespace-nowrap"
+          title="بازنشانی به امروز واقعی"
+          @click="devModeStore.resetToRealToday"
+        >
+          امروز واقعی
+        </button>
+      </div>
+    </div>
+
     <!-- Horizontal Snap Scroll Container in RTL order -->
     <div
       ref="scrollContainer"
@@ -614,8 +654,6 @@ const unregisterBackHandler = registerBackHandler(() => {
         :selected-count="selectedTaskIds.length"
         :can-copy="canCopy"
         :can-edit="canEdit"
-        :can-delete="canDelete"
-        :is-past-day="isSelectionPastDay"
         @copy="handleCopyTask"
         @edit="handleOpenEditTask"
         @delete="handleRequestDeleteFromSelection"

@@ -71,6 +71,7 @@ export const useTimelineStore = defineStore('timeline', () => {
   }
 
   function ensureInitialized() {
+    processRollovers()
     if (days.value.length === WINDOW_SIZE) return
     setWindowAroundDate(PersianDate.today())
   }
@@ -223,14 +224,110 @@ export const useTimelineStore = defineStore('timeline', () => {
     toggleTaskByDate(day.date, taskId)
   }
 
-  function addTask(date: PersianDate, title: string) {
+  function processRollovers(): number {
+    const today = PersianDate.startOfDay(PersianDate.today())
+    const todayTs = today.getTime()
+    let movedCount = 0
+
+    const newTasksMap: Record<number, Task[]> = {}
+    for (const key of Object.keys(persistedTasks.value)) {
+      const ts = Number(key)
+      newTasksMap[ts] = [...(persistedTasks.value[ts] || [])]
+    }
+
+    const allTimestamps = Object.keys(newTasksMap).map(Number)
+
+    for (const sourceTs of allTimestamps) {
+      const tasksOnDay = newTasksMap[sourceTs] || []
+      const remainingTasks: Task[] = []
+
+      for (const task of tasksOnDay) {
+        if (task.isTracked && !task.done) {
+          const originTs = task.originalDateTimestamp || sourceTs
+          const allowedDays =
+            task.allowedDays && task.allowedDays.length > 0
+              ? task.allowedDays
+              : [6, 0, 1, 2, 3, 4, 5]
+
+          // Determine target date: earliest allowed day >= max(originTs, todayTs)
+          const baseTs = Math.max(originTs, todayTs)
+
+          let destDate = new PersianDate(baseTs)
+          let found = false
+          for (let i = 0; i < 14; i++) {
+            const candidate = PersianDate.addDays(new PersianDate(baseTs), i)
+            if (allowedDays.includes(candidate.value.getDay())) {
+              destDate = candidate
+              found = true
+              break
+            }
+          }
+          if (!found) {
+            destDate = new PersianDate(baseTs)
+          }
+
+          const destTs = PersianDate.startOfDay(destDate).getTime()
+
+          if (destTs !== sourceTs) {
+            const updatedTask: Task = {
+              ...task,
+              originalDateTimestamp: originTs,
+              lastRolloverDateTimestamp: todayTs,
+              rolloverCount: (task.rolloverCount || 0) + (destTs > sourceTs ? 1 : 0),
+            }
+
+            const currentDestList = (newTasksMap[destTs] || []).filter((t) => t.id !== task.id)
+            newTasksMap[destTs] = [...currentDestList, updatedTask]
+            movedCount++
+          } else {
+            remainingTasks.push(task)
+          }
+        } else {
+          remainingTasks.push(task)
+        }
+      }
+
+      newTasksMap[sourceTs] = remainingTasks
+    }
+
+    if (movedCount > 0) {
+      persistedTasks.value = newTasksMap
+      savePersistedTasks(newTasksMap)
+
+      for (const day of days.value) {
+        const timeKey = day.date.getTime()
+        day.tasks = newTasksMap[timeKey] ? [...newTasksMap[timeKey]] : []
+      }
+    }
+
+    return movedCount
+  }
+
+  function syncToday() {
+    processRollovers()
+    const today = PersianDate.today()
+    setWindowAroundDate(today)
+  }
+
+  function addTask(
+    date: PersianDate,
+    title: string,
+    options?: { isTracked?: boolean; allowedDays?: number[] }
+  ) {
     const trimmed = title.trim()
     if (!trimmed) return
     const timeKey = PersianDate.startOfDay(date).getTime()
+    const isTracked = options?.isTracked ?? false
+    const allowedDays = options?.allowedDays ?? [6, 0, 1, 2, 3, 4, 5]
+
     const newTask: Task = {
       id: `${timeKey}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       title: trimmed,
       done: false,
+      isTracked,
+      allowedDays: isTracked ? allowedDays : undefined,
+      originalDateTimestamp: timeKey,
+      rolloverCount: 0,
     }
 
     const target = days.value.find((d) => d.date.getTime() === timeKey)
@@ -251,7 +348,12 @@ export const useTimelineStore = defineStore('timeline', () => {
     deleteMultipleTasks(day, [taskId])
   }
 
-  function updateTask(day: DayItem, taskId: string, newTitle: string) {
+  function updateTask(
+    day: DayItem,
+    taskId: string,
+    newTitle: string,
+    options?: { isTracked?: boolean; allowedDays?: number[] }
+  ) {
     const trimmed = newTitle.trim()
     if (!trimmed) return
     const timeKey = PersianDate.startOfDay(day.date).getTime()
@@ -260,6 +362,12 @@ export const useTimelineStore = defineStore('timeline', () => {
       const task = tasks.find((t) => t.id === taskId)
       if (task) {
         task.title = trimmed
+        if (options?.isTracked !== undefined) {
+          task.isTracked = options.isTracked
+          task.allowedDays = options.isTracked
+            ? (options.allowedDays ?? [6, 0, 1, 2, 3, 4, 5])
+            : undefined
+        }
         persistedTasks.value = {
           ...persistedTasks.value,
           [timeKey]: [...tasks],
@@ -272,6 +380,12 @@ export const useTimelineStore = defineStore('timeline', () => {
       const dTask = target.tasks.find((t) => t.id === taskId)
       if (dTask) {
         dTask.title = trimmed
+        if (options?.isTracked !== undefined) {
+          dTask.isTracked = options.isTracked
+          dTask.allowedDays = options.isTracked
+            ? (options.allowedDays ?? [6, 0, 1, 2, 3, 4, 5])
+            : undefined
+        }
       }
     }
   }
@@ -329,5 +443,7 @@ export const useTimelineStore = defineStore('timeline', () => {
     updateTask,
     deleteTask,
     deleteMultipleTasks,
+    processRollovers,
+    syncToday,
   }
 })
