@@ -37,7 +37,6 @@ let touchStartY = 0
 let didTriggerLongPress = false
 
 function startLongPress() {
-  if (props.disabled) return
   didTriggerLongPress = false
   if (longPressTimer) clearTimeout(longPressTimer)
   longPressTimer = setTimeout(() => {
@@ -54,7 +53,6 @@ function clearLongPress() {
 }
 
 function onTouchStart(e: TouchEvent) {
-  if (props.disabled) return
   const touch = e.touches[0]
   touchStartX = touch.clientX
   touchStartY = touch.clientY
@@ -75,7 +73,7 @@ function onTouchEnd() {
 }
 
 function onMouseDown(e: MouseEvent) {
-  if (props.disabled || e.button !== 0) return
+  if (e.button !== 0) return
   touchStartX = e.clientX
   touchStartY = e.clientY
   startLongPress()
@@ -97,8 +95,9 @@ function onMouseDown(e: MouseEvent) {
 }
 
 function handleContextMenu(e: MouseEvent) {
-  // Prevent Chrome from triggering default contextmenu or text selection gesture
+  // Prevent browser context menu and trigger selection mode
   e.preventDefault()
+  emit('long-press', props.task)
 }
 
 function handleItemClick() {

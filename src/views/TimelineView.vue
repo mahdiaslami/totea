@@ -342,11 +342,26 @@ function exitSelectionMode() {
   selectionDay.value = null
 }
 
-// Copy action: copies only task title, allowed only when exactly 1 task is selected
+// Selection state computeds
+const isSelectionPastDay = computed(() => {
+  return !!selectionDay.value && selectionDay.value.date.isPast()
+})
+
+// Copy action: copies task title to clipboard (identical to standard pages)
 const canCopy = computed(() => selectedTaskIds.value.length === 1)
 
-// Edit action: allowed only when exactly 1 task is selected
-const canEdit = computed(() => selectedTaskIds.value.length === 1)
+// Edit action: allowed only when exactly 1 task is selected and not in a past day
+const canEdit = computed(() => {
+  if (isSelectionPastDay.value) return false
+  return selectedTaskIds.value.length === 1
+})
+
+// Delete action: not allowed for past days
+const canDelete = computed(() => {
+  if (isSelectionPastDay.value) return false
+  return selectedTaskIds.value.length > 0
+})
+
 const isEditSheetOpen = ref(false)
 const taskToEdit = ref<Task | null>(null)
 
@@ -367,6 +382,7 @@ function handleConfirmEditTask(newTitle: string) {
   showToast('کار ویرایش شد')
 }
 
+// Copy task title to clipboard (identical to standard days)
 async function handleCopyTask() {
   if (!canCopy.value || !selectionDay.value) return
   const currentTaskId = selectedTaskIds.value[0]
@@ -396,7 +412,7 @@ async function handleCopyTask() {
 
 // Delete action from selection toolbar
 function handleRequestDeleteFromSelection() {
-  if (!selectionDay.value || selectedTaskIds.value.length === 0) return
+  if (!selectionDay.value || selectedTaskIds.value.length === 0 || isSelectionPastDay.value) return
   const idSet = new Set(selectedTaskIds.value)
   const targetTasks = selectionDay.value.tasks.filter((t) => idSet.has(t.id))
   if (targetTasks.length === 0) return
@@ -598,6 +614,8 @@ const unregisterBackHandler = registerBackHandler(() => {
         :selected-count="selectedTaskIds.length"
         :can-copy="canCopy"
         :can-edit="canEdit"
+        :can-delete="canDelete"
+        :is-past-day="isSelectionPastDay"
         @copy="handleCopyTask"
         @edit="handleOpenEditTask"
         @delete="handleRequestDeleteFromSelection"

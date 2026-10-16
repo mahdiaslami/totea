@@ -1,9 +1,17 @@
 <script setup lang="ts">
-defineProps<{
-  selectedCount: number
-  canCopy: boolean
-  canEdit: boolean
-}>()
+withDefaults(
+  defineProps<{
+    selectedCount: number
+    canCopy: boolean
+    canEdit: boolean
+    canDelete?: boolean
+    isPastDay?: boolean
+  }>(),
+  {
+    canDelete: true,
+    isPastDay: false,
+  }
+)
 
 const emit = defineEmits<{
   (e: 'copy'): void
@@ -34,7 +42,7 @@ const emit = defineEmits<{
       class="flex items-center gap-1 rounded-full border border-slate-200/90 bg-white/95 p-1.5 shadow-xl shadow-slate-900/10 backdrop-blur-md text-slate-700"
       role="toolbar"
     >
-      <!-- Copy Button -->
+      <!-- Copy Button (Active on past and normal days) -->
       <button
         type="button"
         class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-medium transition-all active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
@@ -49,37 +57,40 @@ const emit = defineEmits<{
         <span>کپی</span>
       </button>
 
-      <div class="h-4 w-[1px] bg-slate-200" />
+      <!-- Edit Button (Hidden on past days, active only when 1 task selected on today/future) -->
+      <template v-if="!isPastDay">
+        <div class="h-4 w-[1px] bg-slate-200" />
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-medium transition-all active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
+          :class="canEdit ? 'text-slate-700 hover:bg-slate-100 active:bg-slate-200' : 'text-slate-400'"
+          :disabled="!canEdit"
+          :title="canEdit ? 'ویرایش کار' : 'ویرایش تنها برای یک کار مجاز است'"
+          @click="emit('edit')"
+        >
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+          <span>ویرایش</span>
+        </button>
+      </template>
 
-      <!-- Edit Button (Active only when 1 task selected, next to Delete) -->
-      <button
-        type="button"
-        class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-medium transition-all active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
-        :class="canEdit ? 'text-slate-700 hover:bg-slate-100 active:bg-slate-200' : 'text-slate-400'"
-        :disabled="!canEdit"
-        :title="canEdit ? 'ویرایش کار' : 'ویرایش تنها برای یک کار مجاز است'"
-        @click="emit('edit')"
-      >
-        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-        </svg>
-        <span>ویرایش</span>
-      </button>
-
-      <div class="h-4 w-[1px] bg-slate-200" />
-
-      <!-- Delete Button (Light theme, same neutral styling as Copy) -->
-      <button
-        type="button"
-        class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition-all active:scale-95 cursor-pointer"
-        title="حذف کارهای انتخاب‌شده"
-        @click="emit('delete')"
-      >
-        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-        </svg>
-        <span>حذف</span>
-      </button>
+      <!-- Delete Button (Hidden on past days, shown on today/future) -->
+      <template v-if="!isPastDay">
+        <div class="h-4 w-[1px] bg-slate-200" />
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition-all active:scale-95 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
+          :disabled="!canDelete"
+          title="حذف کارهای انتخاب‌شده"
+          @click="emit('delete')"
+        >
+          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          <span>حذف</span>
+        </button>
+      </template>
 
       <div class="h-4 w-[1px] bg-slate-200" />
 
