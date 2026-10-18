@@ -197,7 +197,7 @@ function isTaskSelected(taskId: string) {
             v-for="task in day.tasks"
             :key="task.id"
             :task="task"
-            :disabled="day.date.isPast()"
+            :disabled="false"
             :is-selected="isTaskSelected(task.id)"
             :is-selection-mode="isSelectionMode"
             @toggle="(taskId: string) => emit('toggle', taskId)"

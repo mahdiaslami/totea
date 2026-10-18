@@ -206,6 +206,21 @@ export const useTimelineStore = defineStore('timeline', () => {
     const task = tasks.find((t) => t.id === taskId)
     if (task) {
       task.done = !task.done
+      const todayTs = PersianDate.startOfDay(PersianDate.today()).getTime()
+      if (task.done) {
+        // If completed on a past day, mark as completed with delay
+        if (timeKey < todayTs || (task.originalDateTimestamp && task.originalDateTimestamp < timeKey)) {
+          task.completedWithDelay = true
+          task.completedAtDateTimestamp = todayTs
+        } else {
+          task.completedWithDelay = false
+          task.completedAtDateTimestamp = timeKey
+        }
+      } else {
+        task.completedWithDelay = false
+        task.completedAtDateTimestamp = undefined
+      }
+
       persistedTasks.value = {
         ...persistedTasks.value,
         [timeKey]: [...tasks],
@@ -215,7 +230,11 @@ export const useTimelineStore = defineStore('timeline', () => {
       const target = days.value.find((d) => d.date.getTime() === timeKey)
       if (target) {
         const dTask = target.tasks.find((t) => t.id === taskId)
-        if (dTask) dTask.done = task.done
+        if (dTask) {
+          dTask.done = task.done
+          dTask.completedWithDelay = task.completedWithDelay
+          dTask.completedAtDateTimestamp = task.completedAtDateTimestamp
+        }
       }
     }
   }

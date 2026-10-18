@@ -9,6 +9,8 @@ export interface Task {
   originalDateTimestamp?: number
   lastRolloverDateTimestamp?: number
   rolloverCount?: number
+  completedWithDelay?: boolean
+  completedAtDateTimestamp?: number
 }
 
 export interface DayItem {

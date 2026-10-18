@@ -807,6 +807,17 @@ onActivated(() => {
                         </span>
 
                         <span
+                          v-if="task.completedWithDelay"
+                          class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium shrink-0 bg-amber-50 text-amber-800 border border-amber-200"
+                          title="این کار با تعویق انجام شده است"
+                        >
+                          <svg class="h-2.5 w-2.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>انجام با تعویق</span>
+                        </span>
+
+                        <span
                           v-if="task.isTracked"
                           class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold shrink-0"
                           :class="

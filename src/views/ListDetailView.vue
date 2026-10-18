@@ -7,7 +7,7 @@ import {
   type TaskList,
   type ListItem,
 } from '@/stores/lists'
-import { PersianDate } from '@/modules/timeline/PersianDate'
+import { PersianDate, toPersianDigits } from '@/modules/timeline/PersianDate'
 import texturePatternImg from '@/assets/images/Texture-01-xs-blue.png'
 import thinkingCharacterImg from '@/assets/images/thinking_character_01.png'
 import AddTaskSheet from '@/components/ui/AddTaskSheet.vue'
@@ -200,8 +200,8 @@ function exitSelectionMode() {
   selectedTaskIds.value = []
 }
 
-// Copy action: single task title copied to clipboard
-const canCopy = computed(() => selectedTaskIds.value.length === 1)
+// Copy action: task title(s) copied to clipboard
+const canCopy = computed(() => selectedTaskIds.value.length >= 1)
 
 // Edit action: single task editing
 const canEdit = computed(() => selectedTaskIds.value.length === 1)
@@ -225,16 +225,18 @@ function handleConfirmEditTask(newTitle: string) {
 
 async function handleCopyTask() {
   if (!canCopy.value || !activeList.value) return
-  const currentTaskId = selectedTaskIds.value[0]
-  const item = activeList.value.items.find((i) => i.id === currentTaskId)
-  if (!item) return
+  const idSet = new Set(selectedTaskIds.value)
+  const targetItems = activeList.value.items.filter((i) => idSet.has(i.id))
+  if (targetItems.length === 0) return
+
+  const textToCopy = targetItems.map((i) => i.title).join('\n')
 
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(item.title)
+      await navigator.clipboard.writeText(textToCopy)
     } else {
       const textarea = document.createElement('textarea')
-      textarea.value = item.title
+      textarea.value = textToCopy
       textarea.style.position = 'fixed'
       textarea.style.opacity = '0'
       document.body.appendChild(textarea)
@@ -242,7 +244,7 @@ async function handleCopyTask() {
       document.execCommand('copy')
       document.body.removeChild(textarea)
     }
-    showToast('متن کار کپی شد')
+    showToast(targetItems.length > 1 ? `${toPersianDigits(targetItems.length)} کار کپی شد` : 'متن کار کپی شد')
     exitSelectionMode()
   } catch {
     showToast('خطا در کپی متن')

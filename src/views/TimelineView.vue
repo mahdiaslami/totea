@@ -4,7 +4,7 @@ import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useTimelineStore, BUFFER_DAYS, CENTER_INDEX } from '../stores/timeline'
 import { useDevModeStore } from '../stores/devMode'
-import { PersianDate } from '../modules/timeline/PersianDate'
+import { PersianDate, toPersianDigits } from '../modules/timeline/PersianDate'
 import type { Task, DayItem } from '../modules/timeline/date'
 import DayView from '../components/ui/DayView.vue'
 import AddTaskSheet from '../components/ui/AddTaskSheet.vue'
@@ -344,8 +344,8 @@ function exitSelectionMode() {
   selectionDay.value = null
 }
 
-// Copy action: copies only task title, allowed only when exactly 1 task is selected
-const canCopy = computed(() => selectedTaskIds.value.length === 1)
+// Copy action: copies task title(s), allowed when at least 1 task is selected
+const canCopy = computed(() => selectedTaskIds.value.length >= 1)
 
 // Edit action: allowed only when exactly 1 task is selected
 const canEdit = computed(() => selectedTaskIds.value.length === 1)
@@ -373,20 +373,22 @@ function handleConfirmEditTask(
   showToast('کار ویرایش شد')
 }
 
-// Copy task title to clipboard (identical to standard days)
+// Copy task title(s) to clipboard (works for today, past, and future days)
 async function handleCopyTask() {
   if (!canCopy.value || !selectionDay.value) return
-  const currentTaskId = selectedTaskIds.value[0]
-  const task = selectionDay.value.tasks.find((t) => t.id === currentTaskId)
-  if (!task) return
+  const idSet = new Set(selectedTaskIds.value)
+  const targetTasks = selectionDay.value.tasks.filter((t) => idSet.has(t.id))
+  if (targetTasks.length === 0) return
+
+  const textToCopy = targetTasks.map((t) => t.title).join('\n')
 
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      await navigator.clipboard.writeText(task.title)
+      await navigator.clipboard.writeText(textToCopy)
     } else {
       // Fallback for older browsers
       const textarea = document.createElement('textarea')
-      textarea.value = task.title
+      textarea.value = textToCopy
       textarea.style.position = 'fixed'
       textarea.style.opacity = '0'
       document.body.appendChild(textarea)
@@ -394,7 +396,7 @@ async function handleCopyTask() {
       document.execCommand('copy')
       document.body.removeChild(textarea)
     }
-    showToast('متن کار کپی شد')
+    showToast(targetTasks.length > 1 ? `${toPersianDigits(targetTasks.length)} کار کپی شد` : 'متن کار کپی شد')
     exitSelectionMode()
   } catch {
     showToast('خطا در کپی متن')
