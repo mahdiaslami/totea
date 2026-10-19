@@ -667,6 +667,7 @@ const unregisterBackHandler = registerBackHandler(() => {
     <AddTaskSheet
       v-model="isSheetOpen"
       :target-date="selectedTargetDate"
+      :show-tracked-option="true"
       @submit="handleCreateTask"
     />
 
@@ -675,6 +676,7 @@ const unregisterBackHandler = registerBackHandler(() => {
       v-model="isEditSheetOpen"
       :task="taskToEdit"
       :target-date="selectionDay?.date || null"
+      :show-tracked-option="true"
       @submit="handleConfirmEditTask"
     />
 

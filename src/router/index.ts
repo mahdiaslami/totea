@@ -33,6 +33,18 @@ const router = createRouter({
       meta: { index: 2.1, title: 'جزئیات لیست' },
     },
     {
+      path: '/habits',
+      name: 'habits',
+      component: () => import('../views/HabitsView.vue'),
+      meta: { index: 2.5, title: 'عادت‌ها' },
+    },
+    {
+      path: '/habits/:id',
+      name: 'habit-detail',
+      component: () => import('../views/HabitDetailView.vue'),
+      meta: { index: 2.6, title: 'جزئیات عادت' },
+    },
+    {
       path: '/goals',
       name: 'goals',
       component: () => import('../views/GoalsView.vue'),

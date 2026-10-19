@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
 import { useKeyboard } from '@/composables/useKeyboard'
 import type { PersianDate } from '@/modules/timeline/PersianDate'
 import type { Task } from '@/modules/timeline/date'
@@ -11,13 +11,24 @@ const props = withDefaults(
     targetDate?: PersianDate | null
     customTitle?: string
     customSubtitle?: string
+    customBadge?: string
+    showTrackedOption?: boolean
   }>(),
   {
     targetDate: null,
     customTitle: '',
     customSubtitle: '',
+    customBadge: '',
+    showTrackedOption: undefined,
   }
 )
+
+const shouldShowTrackedOption = computed(() => {
+  if (props.showTrackedOption !== undefined) {
+    return props.showTrackedOption
+  }
+  return Boolean(props.targetDate) && !props.customBadge && !props.customTitle
+})
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
@@ -140,9 +151,10 @@ function close() {
 function handleSubmit() {
   const text = taskInput.value.replace(/[\r\n]+/g, ' ').trim()
   if (!text) return
+  const isTaskTracked = shouldShowTrackedOption.value ? isTracked.value : false
   emit('submit', text, {
-    isTracked: isTracked.value,
-    allowedDays: isTracked.value ? [...selectedAllowedDays.value] : [6, 0, 1, 2, 3, 4, 5],
+    isTracked: isTaskTracked,
+    allowedDays: isTaskTracked ? [...selectedAllowedDays.value] : [6, 0, 1, 2, 3, 4, 5],
   })
   close()
 }
@@ -195,8 +207,17 @@ function handleSubmit() {
               <!-- Header information -->
               <div class="mb-4 flex items-center justify-between">
                 <div class="flex items-center gap-2 min-w-0">
-                  <span class="flex items-center justify-center rounded-full bg-sky-100 px-2.5 py-1 text-xs font-bold text-sky-700 shrink-0">
+                  <span
+                    v-if="targetDate"
+                    class="flex items-center justify-center rounded-full bg-sky-100 px-2.5 py-1 text-xs font-bold text-sky-700 shrink-0"
+                  >
                     ویرایش کار
+                  </span>
+                  <span
+                    v-else-if="customBadge"
+                    class="flex items-center justify-center rounded-full bg-sky-100 px-2.5 py-1 text-xs font-bold text-sky-700 shrink-0"
+                  >
+                    {{ customBadge }}
                   </span>
                   <span v-if="targetDate" class="text-sm font-bold text-slate-800">
                     {{ targetDate.weekdayName }}، {{ targetDate.formatJalali() }}
@@ -244,7 +265,7 @@ function handleSubmit() {
                 </div>
 
                 <!-- Tracked Task Option (تسک پیگیری‌شونده) -->
-                <div class="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-3.5 space-y-3">
+                <div v-if="shouldShowTrackedOption" class="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-3.5 space-y-3">
                   <div
                     class="flex items-center justify-between cursor-pointer select-none"
                     @click="isTracked = !isTracked"

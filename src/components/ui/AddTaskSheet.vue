@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
 import { useKeyboard } from '@/composables/useKeyboard'
 import type { PersianDate } from '@/modules/timeline/PersianDate'
 
@@ -10,14 +10,23 @@ const props = withDefaults(
     customTitle?: string
     customSubtitle?: string
     customBadge?: string
+    showTrackedOption?: boolean
   }>(),
   {
     targetDate: null,
     customTitle: '',
     customSubtitle: '',
     customBadge: '',
+    showTrackedOption: undefined,
   }
 )
+
+const shouldShowTrackedOption = computed(() => {
+  if (props.showTrackedOption !== undefined) {
+    return props.showTrackedOption
+  }
+  return Boolean(props.targetDate) && !props.customBadge && !props.customTitle
+})
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
@@ -136,9 +145,10 @@ function close() {
 function handleSubmit() {
   const text = taskInput.value.replace(/[\r\n]+/g, ' ').trim()
   if (!text) return
+  const isTaskTracked = shouldShowTrackedOption.value ? isTracked.value : false
   emit('submit', text, {
-    isTracked: isTracked.value,
-    allowedDays: isTracked.value ? [...selectedAllowedDays.value] : [6, 0, 1, 2, 3, 4, 5],
+    isTracked: isTaskTracked,
+    allowedDays: isTaskTracked ? [...selectedAllowedDays.value] : [6, 0, 1, 2, 3, 4, 5],
   })
   close()
 }
@@ -189,7 +199,7 @@ function handleSubmit() {
               <div class="mx-auto mb-4 h-1.5 w-12 rounded-full bg-slate-200" />
 
               <!-- Header information -->
-              <div v-if="targetDate || customTitle" class="mb-4 flex items-center justify-between">
+              <div v-if="targetDate || customTitle || customBadge" class="mb-4 flex items-center justify-between">
                 <div class="flex items-center gap-2 min-w-0">
                   <span
                     v-if="targetDate"
@@ -258,7 +268,7 @@ function handleSubmit() {
                 </div>
 
                 <!-- Tracked Task Option (تسک پیگیری‌شونده) -->
-                <div class="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-3.5 space-y-3">
+                <div v-if="shouldShowTrackedOption" class="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-3.5 space-y-3">
                   <div
                     class="flex items-center justify-between cursor-pointer select-none"
                     @click="isTracked = !isTracked"

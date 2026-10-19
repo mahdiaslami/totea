@@ -18,6 +18,26 @@
   background: rgba(100, 116, 139, 0.6);
 }
 
+/* Inset horizontal scrollbar for rounded cards so scrollbars stay inside rounded corners */
+.scrollbar-inset {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+}
+.scrollbar-inset::-webkit-scrollbar {
+  height: 4px;
+}
+.scrollbar-inset::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 0 16px;
+}
+.scrollbar-inset::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45);
+  border-radius: 9999px;
+}
+.scrollbar-inset::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.7);
+}
+
 /* The app fills the viewport and owns its own scrolling:
    the document itself never scrolls, each day's task list scrolls
    inside its own container. Fixed inset prevents document jumping

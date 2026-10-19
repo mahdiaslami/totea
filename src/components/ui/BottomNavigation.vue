@@ -19,18 +19,18 @@ const tabs: NavTab[] = [
     icon: 'days',
   },
   {
-    id: 'calendar',
-    name: 'calendar',
-    label: 'تقویم',
-    path: '/calendar',
-    icon: 'calendar',
-  },
-  {
     id: 'lists',
     name: 'lists',
     label: 'لیست‌ها',
     path: '/lists',
     icon: 'lists',
+  },
+  {
+    id: 'habits',
+    name: 'habits',
+    label: 'عادت‌ها',
+    path: '/habits',
+    icon: 'habits',
   },
   {
     id: 'goals',
@@ -56,11 +56,11 @@ const activeTabId = computed(() => {
   if (currentPath === '/' || currentPath === '/days' || route.name === 'timeline') {
     return 'timeline'
   }
-  if (currentPath.startsWith('/calendar')) return 'calendar'
   if (currentPath.startsWith('/lists')) return 'lists'
+  if (currentPath.startsWith('/habits')) return 'habits'
   if (currentPath.startsWith('/goals')) return 'goals'
   if (currentPath.startsWith('/settings')) return 'settings'
-  return 'timeline'
+  return ''
 })
 
 function navigateTo(tab: NavTab) {
@@ -133,23 +133,7 @@ function navigateTo(tab: NavTab) {
             />
           </svg>
 
-          <!-- 2. تقویم (Calendar) -->
-          <svg
-            v-else-if="tab.icon === 'calendar'"
-            class="h-5 w-5 transition-transform duration-200"
-            :class="activeTabId === tab.id ? 'stroke-[2.2]' : 'stroke-[1.8]'"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2zM8.5 15.5h7"
-            />
-          </svg>
-
-          <!-- 3. لیست‌ها (Lists) -->
+          <!-- 2. لیست‌ها (Lists) -->
           <svg
             v-else-if="tab.icon === 'lists'"
             class="h-5 w-5 transition-transform duration-200"
@@ -162,6 +146,27 @@ function navigateTo(tab: NavTab) {
               stroke-linecap="round"
               stroke-linejoin="round"
               d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+            />
+          </svg>
+
+          <!-- 3. عادت‌ها (Habits) -->
+          <svg
+            v-else-if="tab.icon === 'habits'"
+            class="h-5 w-5 transition-transform duration-200"
+            :class="activeTabId === tab.id ? 'stroke-[2.2]' : 'stroke-[1.8]'"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z"
+            />
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 3.75 3.75 0 001.43 3.921z"
             />
           </svg>
 

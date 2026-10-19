@@ -13,9 +13,10 @@ const transitionName = ref('swipe-to-left')
 
 const tabIndices: Record<string, number> = {
   timeline: 0,
-  calendar: 1,
-  lists: 2,
-  'list-detail': 2.1,
+  calendar: 0.5,
+  lists: 1,
+  'list-detail': 1.1,
+  habits: 2,
   goals: 3,
   settings: 4,
 }
@@ -51,7 +52,7 @@ router.beforeEach((to, from) => {
     <main class="relative flex-1 min-h-0 w-full overflow-hidden overflow-x-clip">
       <RouterView v-slot="{ Component, route }">
         <Transition :name="transitionName" @after-enter="resetMainScroll">
-          <KeepAlive :include="['TimelineView', 'CalendarView', 'ListsView', 'GoalsView', 'SettingsView']">
+          <KeepAlive :include="['TimelineView', 'CalendarView', 'ListsView', 'HabitsView', 'GoalsView', 'SettingsView']">
             <component :is="Component" :key="route.fullPath" class="h-full w-full" />
           </KeepAlive>
         </Transition>

@@ -458,7 +458,9 @@ function handleCreateTask(title: string) {
       <!-- Add Task Bottom Sheet (Exact bottom sheet as Days page) -->
       <AddTaskSheet
         v-model="isAddTaskSheetOpen"
+        custom-badge="لیست"
         :custom-title="activeList.title"
+        :show-tracked-option="false"
         @submit="handleCreateTask"
       />
 
@@ -467,6 +469,8 @@ function handleCreateTask(title: string) {
         v-model="isEditTaskSheetOpen"
         :task="taskToEdit"
         custom-badge="لیست"
+        :custom-title="activeList.title"
+        :show-tracked-option="false"
         @submit="handleConfirmEditTask"
       />
 

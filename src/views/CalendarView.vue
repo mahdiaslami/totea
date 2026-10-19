@@ -218,22 +218,9 @@ interface CalendarDaySlot {
   pendingTasksCount?: number
 }
 
-interface CalendarDayWithTasks {
-  isEmpty: false
-  dayNumber: number
-  pDate: PersianDate
-  isToday: boolean
-  isFriday: boolean
-  shortWeekdayName: string
-  tasks: Task[]
-  completedTasksCount: number
-  pendingTasksCount: number
-}
-
 interface CalendarWeek {
   weekNumber: number
   slots: CalendarDaySlot[]
-  daysWithTasks: CalendarDayWithTasks[]
 }
 
 // Generate the weeks and days for a given month in the selected year
@@ -301,20 +288,9 @@ function getMonthWeeks(monthNum: number): {
   const weeks: CalendarWeek[] = []
   for (let i = 0; i < allSlots.length; i += 7) {
     const weekSlots = allSlots.slice(i, i + 7)
-    const daysWithTasks = weekSlots.filter(
-      (s): s is CalendarDayWithTasks =>
-        !s.isEmpty &&
-        !!s.pDate &&
-        !!s.tasks &&
-        s.tasks.length > 0 &&
-        typeof s.dayNumber === 'number' &&
-        typeof s.completedTasksCount === 'number' &&
-        typeof s.pendingTasksCount === 'number'
-    )
     weeks.push({
       weekNumber: Math.floor(i / 7) + 1,
       slots: weekSlots,
-      daysWithTasks,
     })
   }
 
@@ -344,21 +320,6 @@ function goToTimelineDay(pDate: PersianDate) {
   selectDate(pDate)
   store.setActiveDate(pDate)
   router.replace('/')
-}
-
-function handleToggleTask(pDate: PersianDate, taskId: string) {
-  store.toggleTaskByDate(pDate, taskId)
-}
-
-// Collapsible task cards under each week in the calendar
-const expandedDays = ref<Record<number, boolean>>({})
-
-function isDayExpanded(timeKey: number): boolean {
-  return !!expandedDays.value[timeKey]
-}
-
-function toggleDayExpanded(timeKey: number) {
-  expandedDays.value[timeKey] = !expandedDays.value[timeKey]
 }
 
 const lastMonthHexBg = computed(() => {
@@ -665,182 +626,6 @@ onActivated(() => {
                       </div>
                     </button>
                   </template>
-                </div>
-
-                <!-- If any day in this week has registered tasks, render collapsible task cards below the row -->
-                <div
-                  v-if="week.daysWithTasks.length > 0"
-                  class="flex flex-col gap-2 w-full pt-1.5 pb-1.5"
-                >
-                  <div
-                    v-for="dayWithTask in week.daysWithTasks"
-                    :key="dayWithTask.pDate.getTime()"
-                    class="w-full flex flex-col rounded-2xl bg-black/[0.035] transition-all overflow-hidden"
-                  >
-                    <!-- Clickable Header: Summary of day & tasks, click to toggle open/close -->
-                    <div
-                      class="w-full flex items-center justify-between gap-3 py-2.5 px-3 sm:px-4 cursor-pointer select-none transition hover:bg-black/[0.02] active:scale-[0.995]"
-                      @click="toggleDayExpanded(dayWithTask.pDate.getTime())"
-                    >
-                      <!-- Right Side: Day info & Task count summary -->
-                      <div class="flex items-center gap-2.5 min-w-0">
-                        <!-- Day badge button (Click navigates to timeline day) -->
-                        <button
-                          type="button"
-                          class="flex items-center gap-1.5 py-1 px-2.5 rounded-xl transition hover:bg-black/10 active:scale-95 focus:outline-none bg-black/5 border-0 shrink-0 cursor-pointer"
-                          :title="`مشاهده روز ${dayWithTask.dayNumber} ${monthData.meta.name} در خط زمان`"
-                          @click.stop="goToTimelineDay(dayWithTask.pDate!)"
-                        >
-                          <span
-                            class="text-xs font-bold leading-none"
-                            :class="[
-                              dayWithTask.isToday
-                                ? 'text-sky-600'
-                                : dayWithTask.isFriday
-                                  ? 'text-rose-600'
-                                  : 'text-slate-600'
-                            ]"
-                          >
-                            {{ dayWithTask.shortWeekdayName }}
-                          </span>
-                          <span
-                            class="text-sm font-black leading-none tabular-nums"
-                            :class="[
-                              dayWithTask.isToday
-                                ? 'text-sky-600'
-                                : dayWithTask.isFriday
-                                  ? 'text-rose-600'
-                                  : 'text-slate-900'
-                            ]"
-                          >
-                            {{ toPersianDigits(dayWithTask.dayNumber!) }}
-                          </span>
-                          <span
-                            v-if="dayWithTask.isToday"
-                            class="rounded-full bg-sky-600 px-1 py-0.2 text-[8px] font-bold text-white shadow-xs"
-                          >
-                            امروز
-                          </span>
-                        </button>
-
-                        <!-- Content summary: How many tasks & how many completed -->
-                        <div class="flex items-center gap-2 text-xs sm:text-sm font-medium text-slate-700 truncate">
-                          <span>{{ toPersianDigits(dayWithTask.tasks.length) }} کار</span>
-                          <span
-                            v-if="dayWithTask.completedTasksCount > 0"
-                            class="text-[11px] font-semibold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md"
-                          >
-                            {{ dayWithTask.completedTasksCount === dayWithTask.tasks.length
-                                ? 'همه انجام شد'
-                                : `${toPersianDigits(dayWithTask.completedTasksCount)} انجام‌شده`
-                            }}
-                          </span>
-                          <span
-                            v-else
-                            class="text-[11px] text-slate-400 font-normal"
-                          >
-                            (انجام‌نشده)
-                          </span>
-                        </div>
-                      </div>
-
-                      <!-- Left Side: Expand / Collapse Chevron indicator -->
-                      <div class="flex items-center text-slate-400 shrink-0 pr-1">
-                        <svg
-                          class="h-4 w-4 transition-transform duration-200"
-                          :class="isDayExpanded(dayWithTask.pDate.getTime()) ? 'rotate-180' : ''"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </div>
-
-                    <!-- Expandable Task List (only visible when expanded) -->
-                    <div
-                      v-if="isDayExpanded(dayWithTask.pDate.getTime())"
-                      class="flex flex-col space-y-1.5 px-3 sm:px-4 pb-3 pt-1 border-t border-black/5"
-                    >
-                      <div
-                        v-for="task in dayWithTask.tasks"
-                        :key="task.id"
-                        class="flex items-center gap-2.5 py-1.5 px-2 rounded-xl transition hover:bg-black/5"
-                      >
-                        <!-- Custom Toggle Checkbox -->
-                        <button
-                          type="button"
-                          class="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-all cursor-pointer focus:outline-none active:scale-90"
-                          :class="[
-                            task.done
-                              ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
-                              : 'border-slate-300 bg-white hover:border-slate-400'
-                          ]"
-                          :aria-label="task.done ? 'علامت به عنوان انجام‌نشده' : 'علامت به عنوان انجام‌شده'"
-                          @click.stop="handleToggleTask(dayWithTask.pDate!, task.id)"
-                        >
-                          <svg
-                            v-if="task.done"
-                            class="h-3.5 w-3.5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            stroke-width="3"
-                          >
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        </button>
-
-                        <!-- Task Title & Tracked Badge -->
-                        <span
-                          class="text-xs sm:text-sm transition-all truncate flex-1 cursor-pointer"
-                          :class="[
-                            task.done
-                              ? 'text-slate-500 line-through'
-                              : 'text-slate-800 font-medium'
-                          ]"
-                          @click="goToTimelineDay(dayWithTask.pDate!)"
-                        >
-                          {{ task.title }}
-                        </span>
-
-                        <span
-                          v-if="task.completedWithDelay"
-                          class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium shrink-0 bg-amber-50 text-amber-800 border border-amber-200"
-                          title="این کار با تعویق انجام شده است"
-                        >
-                          <svg class="h-2.5 w-2.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span>انجام با تعویق</span>
-                        </span>
-
-                        <span
-                          v-if="task.isTracked"
-                          class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold shrink-0"
-                          :class="
-                            task.done
-                              ? 'bg-slate-200/60 text-slate-500'
-                              : 'bg-amber-100 text-amber-800 border border-amber-200'
-                          "
-                          :title="
-                            task.rolloverCount && task.rolloverCount > 0
-                              ? `تسک پیگیری‌شونده (${toPersianDigits(task.rolloverCount)} بار انتقال)`
-                              : 'تسک پیگیری‌شونده'
-                          "
-                        >
-                          <svg class="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                          <span v-if="task.rolloverCount && task.rolloverCount > 0" class="tabular-nums font-bold leading-none">
-                            {{ toPersianDigits(task.rolloverCount) }}
-                          </span>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
