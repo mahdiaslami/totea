@@ -286,7 +286,17 @@ function handleCreateTask(title: string) {
 
 <template>
   <div class="relative flex h-full w-full flex-col bg-white overflow-hidden select-none" dir="rtl">
-    <div v-if="activeList" class="relative flex h-full w-full flex-col overflow-hidden">
+    <div v-if="activeList" class="relative flex h-full w-full flex-col overflow-hidden bg-gradient-to-br from-sky-100/90 via-sky-200/60 to-blue-200/70">
+      <!-- Stationary Background Texture Overlay (Fixed in place, never scrolls) -->
+      <div
+        class="pointer-events-none absolute inset-0 z-0 opacity-[0.055] mix-blend-multiply"
+        :style="{
+          backgroundImage: `url(${texturePatternImg})`,
+          backgroundRepeat: 'repeat',
+          backgroundSize: 'auto'
+        }"
+      />
+
       <!-- Header: Styled identically to Days/TimelineView header -->
       <header class="relative z-20 flex-shrink-0 border-b border-slate-100/80 bg-white/95 px-5 py-3.5 backdrop-blur-md shadow-sm shadow-slate-900/5">
         <div class="mx-auto flex max-w-2xl items-center justify-between gap-3">
@@ -352,21 +362,11 @@ function handleCreateTask(title: string) {
         </div>
       </header>
 
-      <!-- Main Area: Identical background gradient, texture pattern, and padding as DayView -->
+      <!-- Main Area with transparent background so fixed background remains stationary -->
       <main
-        class="relative z-10 flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 py-5 pb-24 md:px-8 bg-gradient-to-br from-sky-100/90 via-sky-200/60 to-blue-200/70"
+        class="relative z-10 flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 py-5 pb-24 md:px-8 bg-transparent"
         style="-webkit-overflow-scrolling: touch; touch-action: pan-x pan-y;"
       >
-        <!-- Repeating Texture Overlay (exact match to DayView) -->
-        <div
-          class="pointer-events-none absolute inset-0 opacity-[0.055] mix-blend-multiply"
-          :style="{
-            backgroundImage: `url(${texturePatternImg})`,
-            backgroundRepeat: 'repeat',
-            backgroundSize: 'auto'
-          }"
-        />
-
         <div class="relative mx-auto flex h-full min-h-full max-w-2xl flex-col">
           <!-- Tasks List: Using exact TaskItem component hierarchy as DayView -->
           <ul v-if="activeList.items.length > 0" class="space-y-2.5 pb-28">

@@ -152,6 +152,7 @@ function showToast(msg: string) {
 
 onBeforeUnmount(() => {
   unregisterBackHandler()
+  clearTaskLongPress()
   if (toastTimer) {
     clearTimeout(toastTimer)
     toastTimer = null
@@ -269,6 +270,80 @@ function handleSelectTask(task: HabitTask) {
 function exitSelectionMode() {
   isSelectionMode.value = false
   selectedTaskIds.value = []
+}
+
+// Long-press detection for habit tasks (matching Days page: 400ms timer with 10px movement cancellation)
+let taskLongPressTimer: ReturnType<typeof setTimeout> | null = null
+let taskTouchStartX = 0
+let taskTouchStartY = 0
+let didTriggerTaskLongPress = false
+
+function startTaskLongPress(task: HabitTask) {
+  didTriggerTaskLongPress = false
+  if (taskLongPressTimer) clearTimeout(taskLongPressTimer)
+  taskLongPressTimer = setTimeout(() => {
+    didTriggerTaskLongPress = true
+    enterSelectionMode(task)
+  }, 400)
+}
+
+function clearTaskLongPress() {
+  if (taskLongPressTimer) {
+    clearTimeout(taskLongPressTimer)
+    taskLongPressTimer = null
+  }
+}
+
+function onTaskTouchStart(e: TouchEvent, task: HabitTask) {
+  if (isSelectionMode.value) return
+  const touch = e.touches[0]
+  taskTouchStartX = touch.clientX
+  taskTouchStartY = touch.clientY
+  startTaskLongPress(task)
+}
+
+function onTaskTouchMove(e: TouchEvent) {
+  if (!taskLongPressTimer) return
+  const touch = e.touches[0]
+  if (Math.abs(touch.clientX - taskTouchStartX) > 10 || Math.abs(touch.clientY - taskTouchStartY) > 10) {
+    clearTaskLongPress()
+  }
+}
+
+function onTaskTouchEnd() {
+  clearTaskLongPress()
+}
+
+function onTaskMouseDown(e: MouseEvent, task: HabitTask) {
+  if (isSelectionMode.value || e.button !== 0) return
+  taskTouchStartX = e.clientX
+  taskTouchStartY = e.clientY
+  startTaskLongPress(task)
+
+  const onMouseMove = (moveEvent: MouseEvent) => {
+    if (Math.abs(moveEvent.clientX - taskTouchStartX) > 10 || Math.abs(moveEvent.clientY - taskTouchStartY) > 10) {
+      clearTaskLongPress()
+    }
+  }
+
+  const onMouseUp = () => {
+    clearTaskLongPress()
+    window.removeEventListener('mousemove', onMouseMove)
+    window.removeEventListener('mouseup', onMouseUp)
+  }
+
+  window.addEventListener('mousemove', onMouseMove)
+  window.addEventListener('mouseup', onMouseUp)
+}
+
+function handleTaskClick(task: HabitTask) {
+  if (didTriggerTaskLongPress) {
+    didTriggerTaskLongPress = false
+    return
+  }
+  if (isSelectionMode.value) {
+    handleSelectTask(task)
+  }
 }
 
 // Copy action
@@ -419,7 +494,17 @@ const currentSubheaderTitle = computed(() => {
 </script>
 
 <template>
-  <div v-if="activeHabit" class="relative flex h-full w-full flex-col overflow-hidden bg-white select-none" dir="rtl">
+  <div v-if="activeHabit" class="relative flex h-full w-full flex-col overflow-hidden bg-gradient-to-br from-sky-100/90 via-sky-200/60 to-blue-200/70 select-none" dir="rtl">
+    <!-- Stationary Background Texture Overlay (Fixed in place, never scrolls) -->
+    <div
+      class="pointer-events-none absolute inset-0 z-0 opacity-[0.055] mix-blend-multiply"
+      :style="{
+        backgroundImage: `url(${texturePatternImg})`,
+        backgroundRepeat: 'repeat',
+        backgroundSize: 'auto',
+      }"
+    />
+
     <!-- Header: Back button + Habit title/period + Edit & Delete settings -->
     <header class="relative z-20 flex-shrink-0 border-b border-slate-100/80 bg-white/95 px-5 py-3.5 backdrop-blur-md shadow-sm shadow-slate-900/5">
       <div class="mx-auto flex max-w-2xl items-center justify-between gap-3">
@@ -492,21 +577,11 @@ const currentSubheaderTitle = computed(() => {
       </div>
     </header>
 
-    <!-- Main Content Area: Matching DayView and ListDetailView aesthetics -->
+    <!-- Main Content Area with transparent background so fixed background remains stationary -->
     <main
-      class="relative z-10 flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 py-4 pb-24 md:px-8 bg-gradient-to-br from-sky-100/90 via-sky-200/60 to-blue-200/70"
+      class="relative z-10 flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 py-4 pb-24 md:px-8 bg-transparent"
       style="-webkit-overflow-scrolling: touch; touch-action: pan-x pan-y;"
     >
-      <!-- Repeating Texture Overlay (exact match to ListDetailView) -->
-      <div
-        class="pointer-events-none absolute inset-0 opacity-[0.055] mix-blend-multiply"
-        :style="{
-          backgroundImage: `url(${texturePatternImg})`,
-          backgroundRepeat: 'repeat',
-          backgroundSize: 'auto',
-        }"
-      />
-
       <div class="relative mx-auto flex h-full min-h-full max-w-2xl flex-col">
         <!-- Sticky Day Selector for Weekly & Monthly Habits (Pinned on scroll, completely transparent surroundings) -->
         <div
@@ -517,7 +592,7 @@ const currentSubheaderTitle = computed(() => {
           <div
             v-if="activeHabit.period === 'weekly'"
           >
-            <div class="grid grid-cols-7 gap-1 p-1.5 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-xs">
+            <div class="grid grid-cols-7 gap-1 p-1.5 bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200/90 shadow-md shadow-slate-900/10">
               <button
                 v-for="wd in WEEKDAYS_MAP"
                 :key="wd.dayIndex"
@@ -545,7 +620,7 @@ const currentSubheaderTitle = computed(() => {
           <div
             v-else-if="activeHabit.period === 'monthly'"
           >
-            <div class="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-xs overflow-hidden">
+            <div class="rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-md shadow-slate-900/10 overflow-hidden">
               <div class="flex items-center gap-1.5 overflow-x-auto px-2 pt-1.5 pb-2 scrollbar-inset">
                 <!-- Days with tasks (and active day) -->
                 <button
@@ -600,31 +675,30 @@ const currentSubheaderTitle = computed(() => {
             v-for="(task, index) in currentTasks"
             :key="task.id"
             class="relative overflow-hidden rounded-2xl border transition-all duration-200 select-none cursor-pointer active:scale-[0.99]"
+            style="-webkit-touch-callout: none; -webkit-user-select: none; user-select: none;"
             :class="[
               selectedTaskIds.includes(task.id)
                 ? 'ring-2 ring-sky-500 bg-sky-50/90 shadow-md scale-[1.01] border-sky-300'
                 : 'border-slate-200/80 bg-white/95 backdrop-blur-xs shadow-sm hover:border-slate-300 hover:shadow-md'
             ]"
-            @click="isSelectionMode ? handleSelectTask(task) : undefined"
+            @touchstart="(e) => onTaskTouchStart(e, task)"
+            @touchmove="onTaskTouchMove"
+            @touchend="onTaskTouchEnd"
+            @touchcancel="onTaskTouchEnd"
+            @mousedown="(e) => onTaskMouseDown(e, task)"
+            @contextmenu.prevent
+            @click="handleTaskClick(task)"
           >
             <div class="flex w-full items-start gap-3 p-3.5 text-start">
-              <!-- Selection mode checkbox OR task index badge -->
+              <!-- Task index badge (always visible, highlighted on selection) -->
               <div class="shrink-0 mt-0.5">
-                <template v-if="isSelectionMode">
-                  <svg v-if="selectedTaskIds.includes(task.id)" class="size-6 text-sky-600 fill-current" viewBox="0 0 24 24">
-                    <path
-                      fill-rule="evenodd"
-                      clip-rule="evenodd"
-                      d="M10 2H14C18.4183 2 22 5.58172 22 10V14C22 18.4183 18.4183 22 14 22H10C5.58172 22 2 18.4183 2 14V10C2 5.58172 5.58172 2 10 2ZM15.61 10.186C15.67 10.1061 15.7134 10.0149 15.7377 9.91795C15.762 9.82098 15.7666 9.72014 15.7514 9.62135C15.7361 9.52257 15.7012 9.42782 15.6489 9.3427C15.5965 9.25757 15.5276 9.18378 15.4463 9.12565C15.3649 9.06753 15.2728 9.02624 15.1753 9.00423C15.0778 8.98221 14.9769 8.97991 14.8785 8.99746C14.7801 9.01501 14.6862 9.05205 14.6023 9.10641C14.5184 9.16077 14.4462 9.23135 14.39 9.314L11.154 13.844L9.53 12.22C9.38782 12.0875 9.19978 12.0154 9.00548 12.0188C8.81118 12.0223 8.62579 12.101 8.48838 12.2384C8.35097 12.3758 8.27225 12.5612 8.26882 12.7555C8.2654 12.9498 8.33752 13.1378 8.47 13.28L10.72 15.53C10.797 15.6069 10.8898 15.6662 10.992 15.7036C11.0942 15.7411 11.2033 15.7559 11.3118 15.7469C11.4202 15.738 11.5255 15.7055 11.6201 15.6519C11.7148 15.5982 11.7967 15.5245 11.86 15.436L15.61 10.186Z"
-                    />
-                  </svg>
-                  <svg v-else class="size-6 text-slate-400 stroke-current" viewBox="0 0 24 24" fill="none" stroke-width="1.5">
-                    <rect x="2.75" y="2.75" width="18.5" height="18.5" rx="7.25" />
-                  </svg>
-                </template>
                 <span
-                  v-else
-                  class="flex h-6 w-6 items-center justify-center rounded-lg bg-sky-100 text-sky-800 text-xs font-bold shadow-2xs"
+                  class="flex h-6 w-6 items-center justify-center rounded-lg text-xs font-bold transition-all shadow-2xs"
+                  :class="
+                    selectedTaskIds.includes(task.id)
+                      ? 'bg-sky-600 text-white shadow-xs'
+                      : 'bg-sky-100 text-sky-800'
+                  "
                 >
                   {{ toPersianDigits(index + 1) }}
                 </span>
@@ -635,21 +709,6 @@ const currentSubheaderTitle = computed(() => {
                 <span class="text-sm font-medium text-slate-800 leading-6 break-words">
                   {{ task.title }}
                 </span>
-              </div>
-
-              <!-- Single Task Actions (when not in selection mode) -->
-              <div v-if="!isSelectionMode" class="flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  class="p-1.5 text-slate-400 hover:text-slate-600 transition rounded-lg hover:bg-slate-100 cursor-pointer"
-                  title="ویرایش تسک"
-                  aria-label="ویرایش تسک"
-                  @click.stop="enterSelectionMode(task)"
-                >
-                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
-                  </svg>
-                </button>
               </div>
             </div>
           </li>

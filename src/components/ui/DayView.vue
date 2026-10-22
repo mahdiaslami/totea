@@ -78,7 +78,17 @@ function isHabitTaskDone(habitId: string, taskId: string): boolean {
 </script>
 
 <template>
-  <div class="flex h-full w-full flex-col overflow-hidden bg-white select-none">
+  <div class="relative flex h-full w-full flex-col overflow-hidden bg-gradient-to-br from-sky-100/90 via-sky-200/60 to-blue-200/70 select-none">
+    <!-- Stationary Background Texture Overlay (Fixed in place, never scrolls) -->
+    <div
+      class="pointer-events-none absolute inset-0 z-0 opacity-[0.055] mix-blend-multiply"
+      :style="{
+        backgroundImage: `url(${texturePatternImg})`,
+        backgroundRepeat: 'repeat',
+        backgroundSize: 'auto'
+      }"
+    />
+
     <!-- Day Header with soft elevation shadow over the task content below -->
     <header class="relative z-20 flex-shrink-0 border-b border-slate-100/80 bg-white/95 px-5 py-3.5 backdrop-blur-md shadow-sm shadow-slate-900/5">
       <div class="mx-auto flex max-w-2xl items-center justify-between gap-3">
@@ -131,21 +141,11 @@ function isHabitTaskDone(habitId: string, taskId: string): boolean {
       </div>
     </header>
 
-    <!-- Scrollable Task List Area with deeper rich blue diagonal gradient and softer repeating texture -->
+    <!-- Scrollable Task List Area with transparent background so fixed background remains stationary -->
     <main
-      class="relative z-10 flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 py-5 pb-24 md:px-8 bg-gradient-to-br from-sky-100/90 via-sky-200/60 to-blue-200/70"
+      class="relative z-10 flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 py-5 pb-24 md:px-8 bg-transparent"
       style="-webkit-overflow-scrolling: touch; touch-action: pan-x pan-y;"
     >
-      <!-- Repeating Texture Overlay (subtle, faint, and soft) -->
-      <div
-        class="pointer-events-none absolute inset-0 opacity-[0.055] mix-blend-multiply"
-        :style="{
-          backgroundImage: `url(${texturePatternImg})`,
-          backgroundRepeat: 'repeat',
-          backgroundSize: 'auto'
-        }"
-      />
-
       <div class="relative mx-auto flex h-full min-h-full max-w-2xl flex-col">
         <!-- Scheduled Project Lists for this day -->
         <div v-if="scheduledLists.length > 0" class="mb-3.5 flex flex-col gap-2">
