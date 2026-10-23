@@ -34,6 +34,7 @@ export interface HabitStreakOverview {
 export interface HabitTask {
   id: string
   title: string
+  createdAt?: number
 }
 
 export interface Habit {
@@ -149,6 +150,7 @@ export const useHabitsStore = defineStore('habits', () => {
     weeklySchedule?: Record<number, HabitTask[]>
     monthlySchedule?: Record<number, HabitTask[]>
   }): Habit {
+    const todayStart = PersianDate.startOfDay(PersianDate.today()).getTime()
     const newHabit: Habit = {
       id: 'habit-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
       title: data.title.trim(),
@@ -156,7 +158,7 @@ export const useHabitsStore = defineStore('habits', () => {
       dailyTasks: data.period === 'daily' ? (data.dailyTasks || []) : undefined,
       weeklySchedule: data.period === 'weekly' ? (data.weeklySchedule || {}) : undefined,
       monthlySchedule: data.period === 'monthly' ? (data.monthlySchedule || {}) : undefined,
-      createdAt: Date.now(),
+      createdAt: todayStart,
       completedTaskDates: {},
     }
     habits.value.unshift(newHabit)
@@ -206,9 +208,11 @@ export const useHabitsStore = defineStore('habits', () => {
   ): HabitTask | null {
     const habit = habits.value.find((h) => h.id === habitId)
     if (!habit) return null
+    const todayStart = PersianDate.startOfDay(PersianDate.today()).getTime()
     const newTask: HabitTask = {
       id: 'task-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
       title: title.trim(),
+      createdAt: todayStart,
     }
 
     if (habit.period === 'daily') {
@@ -307,20 +311,40 @@ export const useHabitsStore = defineStore('habits', () => {
     persist()
   }
 
+  // Helper to get creation midnight timestamp for a habit
+  function getHabitCreationStartOfDay(habit: Habit): number {
+    if (!habit.createdAt) return 0
+    return PersianDate.startOfDay(new PersianDate(habit.createdAt)).getTime()
+  }
+
   // Get tasks scheduled for a specific habit on a given Persian date
+  // Only tasks from or after the habit's creation day are returned
   function getTasksForHabitOnDate(habit: Habit, date: PersianDate): HabitTask[] {
+    const targetStart = PersianDate.startOfDay(date).getTime()
+    const habitStart = getHabitCreationStartOfDay(habit)
+
+    // Habit only exists and applies starting from the day it was created
+    if (targetStart < habitStart) {
+      return []
+    }
+
+    let tasks: HabitTask[] = []
     if (habit.period === 'daily') {
-      return habit.dailyTasks || []
-    }
-    if (habit.period === 'weekly') {
+      tasks = habit.dailyTasks || []
+    } else if (habit.period === 'weekly') {
       const weekday = date.value.getDay()
-      return habit.weeklySchedule?.[weekday] || []
-    }
-    if (habit.period === 'monthly') {
+      tasks = habit.weeklySchedule?.[weekday] || []
+    } else if (habit.period === 'monthly') {
       const jDay = date.toJalali().day
-      return habit.monthlySchedule?.[jDay] || []
+      tasks = habit.monthlySchedule?.[jDay] || []
     }
-    return []
+
+    // Filter out tasks that were added on a date after `date`
+    return tasks.filter((task) => {
+      if (!task.createdAt) return true
+      const taskStart = PersianDate.startOfDay(new PersianDate(task.createdAt)).getTime()
+      return targetStart >= taskStart
+    })
   }
 
   // Check if a habit has any tasks scheduled for a given date
@@ -377,20 +401,27 @@ export const useHabitsStore = defineStore('habits', () => {
     const items: HabitHistoryItem[] = []
     const dayTasks = habit.dailyTasks || []
     const hasTasks = dayTasks.length > 0
+    const habitCreatedStart = getHabitCreationStartOfDay(habit)
 
     for (let i = 6; i >= 0; i--) {
       const d = PersianDate.addDays(today, -i)
+      const dStart = PersianDate.startOfDay(d).getTime()
       const isToday = i === 0
       let status: HabitHistoryItem['status'] = 'empty'
 
-      if (hasTasks) {
-        const allDone = dayTasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, d))
-        if (allDone) {
-          status = 'completed'
-        } else if (isToday) {
-          status = 'pending'
-        } else {
-          status = 'missed'
+      if (dStart < habitCreatedStart) {
+        status = 'empty'
+      } else if (hasTasks) {
+        const scheduledTasks = getTasksForHabitOnDate(habit, d)
+        if (scheduledTasks.length > 0) {
+          const allDone = scheduledTasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, d))
+          if (allDone) {
+            status = 'completed'
+          } else if (isToday) {
+            status = 'pending'
+          } else {
+            status = 'missed'
+          }
         }
       }
 
@@ -410,12 +441,21 @@ export const useHabitsStore = defineStore('habits', () => {
 
     let streak = 0
     let todayDone = false
-    if (hasTasks) {
-      todayDone = dayTasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, today))
+    const todayTasks = getTasksForHabitOnDate(habit, today)
+    if (todayTasks.length > 0) {
+      todayDone = todayTasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, today))
       let checkDate = todayDone ? today : PersianDate.addDays(today, -1)
 
       for (let i = 0; i < 365; i++) {
-        const allDone = dayTasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, checkDate))
+        const checkStart = PersianDate.startOfDay(checkDate).getTime()
+        if (checkStart < habitCreatedStart) {
+          break
+        }
+        const tasksOnDate = getTasksForHabitOnDate(habit, checkDate)
+        if (tasksOnDate.length === 0) {
+          break
+        }
+        const allDone = tasksOnDate.every((t) => isTaskCompletedOnDate(habit.id, t.id, checkDate))
         if (allDone) {
           streak++
           checkDate = PersianDate.addDays(checkDate, -1)
@@ -452,6 +492,7 @@ export const useHabitsStore = defineStore('habits', () => {
     const todayWeekday = today.value.getDay()
     const daysSinceSat = (todayWeekday + 1) % 7
     const currentWeekSat = PersianDate.addDays(today, -daysSinceSat)
+    const habitCreatedStart = getHabitCreationStartOfDay(habit)
 
     const activeEntries = Object.entries(habit.weeklySchedule || {}).filter(
       ([, tasks]) => tasks && tasks.length > 0
@@ -467,14 +508,22 @@ export const useHabitsStore = defineStore('habits', () => {
 
     function isWeekCompleted(startSat: PersianDate): boolean {
       if (!hasScheduledTasks || !habit.weeklySchedule) return false
+      let checkedAny = false
       for (const weekday of activeWeekdays) {
         const dayOffset = (weekday + 1) % 7
         const dayDate = PersianDate.addDays(startSat, dayOffset)
-        const tasks = habit.weeklySchedule[weekday] || []
-        const allDone = tasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, dayDate))
-        if (!allDone) return false
+        const dayStart = PersianDate.startOfDay(dayDate).getTime()
+        if (dayStart < habitCreatedStart) {
+          continue
+        }
+        const tasks = getTasksForHabitOnDate(habit, dayDate)
+        if (tasks.length > 0) {
+          checkedAny = true
+          const allDone = tasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, dayDate))
+          if (!allDone) return false
+        }
       }
-      return true
+      return checkedAny
     }
 
     const items: HabitHistoryItem[] = []
@@ -487,27 +536,42 @@ export const useHabitsStore = defineStore('habits', () => {
         if (isSingleDay && singleWeekdayIndex !== null) {
           const singleDayOffset = (singleWeekdayIndex + 1) % 7
           const singleDate = PersianDate.addDays(weekSat, singleDayOffset)
-          const tasks = habit.weeklySchedule?.[singleWeekdayIndex] || []
-          const singleDone = tasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, singleDate))
-          if (singleDone) {
-            status = 'completed'
-          } else if (singleDate.value.getTime() <= today.value.getTime()) {
-            if (singleDate.value.getTime() === today.value.getTime()) {
+          const singleDateTs = PersianDate.startOfDay(singleDate).getTime()
+
+          if (singleDateTs < habitCreatedStart) {
+            status = 'empty'
+          } else {
+            const tasks = getTasksForHabitOnDate(habit, singleDate)
+            if (tasks.length > 0) {
+              const singleDone = tasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, singleDate))
+              if (singleDone) {
+                status = 'completed'
+              } else if (singleDate.value.getTime() <= today.value.getTime()) {
+                if (singleDate.value.getTime() === today.value.getTime()) {
+                  status = 'pending'
+                } else {
+                  status = 'missed'
+                }
+              } else {
+                status = 'pending'
+              }
+            } else {
+              status = 'empty'
+            }
+          }
+        } else {
+          const weekFri = PersianDate.addDays(weekSat, 6)
+          if (PersianDate.startOfDay(weekFri).getTime() < habitCreatedStart) {
+            status = 'empty'
+          } else {
+            const allDone = isWeekCompleted(weekSat)
+            if (allDone) {
+              status = 'completed'
+            } else if (isCurrent) {
               status = 'pending'
             } else {
               status = 'missed'
             }
-          } else {
-            status = 'pending'
-          }
-        } else {
-          const allDone = isWeekCompleted(weekSat)
-          if (allDone) {
-            status = 'completed'
-          } else if (isCurrent) {
-            status = 'pending'
-          } else {
-            status = 'missed'
           }
         }
       }
@@ -535,13 +599,18 @@ export const useHabitsStore = defineStore('habits', () => {
       if (isSingleDay && singleWeekdayIndex !== null) {
         const singleDayOffset = (singleWeekdayIndex + 1) % 7
         const thisWeekDate = PersianDate.addDays(currentWeekSat, singleDayOffset)
-        const tasks = habit.weeklySchedule?.[singleWeekdayIndex] || []
-        const currentDone = tasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, thisWeekDate))
+        const tasks = getTasksForHabitOnDate(habit, thisWeekDate)
+        const currentDone = tasks.length > 0 && tasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, thisWeekDate))
         const startW = currentDone ? 0 : 1
         for (let w = startW; w < 52; w++) {
           const pastWeekSat = PersianDate.addDays(currentWeekSat, -w * 7)
           const pastDate = PersianDate.addDays(pastWeekSat, singleDayOffset)
-          const allDone = tasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, pastDate))
+          if (PersianDate.startOfDay(pastDate).getTime() < habitCreatedStart) {
+            break
+          }
+          const pastTasks = getTasksForHabitOnDate(habit, pastDate)
+          if (pastTasks.length === 0) break
+          const allDone = pastTasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, pastDate))
           if (allDone) {
             streak++
           } else {
@@ -553,6 +622,10 @@ export const useHabitsStore = defineStore('habits', () => {
         const startW = currentWeekDone ? 0 : 1
         for (let w = startW; w < 52; w++) {
           const weekSat = PersianDate.addDays(currentWeekSat, -w * 7)
+          const weekFri = PersianDate.addDays(weekSat, 6)
+          if (PersianDate.startOfDay(weekFri).getTime() < habitCreatedStart) {
+            break
+          }
           if (isWeekCompleted(weekSat)) {
             streak++
           } else {
@@ -578,8 +651,8 @@ export const useHabitsStore = defineStore('habits', () => {
     } else if (isSingleDay && singleWeekdayIndex !== null && singleWeekdayInfo) {
       const singleDayOffset = (singleWeekdayIndex + 1) % 7
       const thisWeekDate = PersianDate.addDays(currentWeekSat, singleDayOffset)
-      const tasks = habit.weeklySchedule?.[singleWeekdayIndex] || []
-      const doneThisWeek = tasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, thisWeekDate))
+      const tasks = getTasksForHabitOnDate(habit, thisWeekDate)
+      const doneThisWeek = tasks.length > 0 && tasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, thisWeekDate))
 
       if (doneThisWeek) {
         currentStatus = { type: 'completed', message: `✨ کار این هفته (${singleWeekdayInfo.name}) انجام شد` }
@@ -598,8 +671,8 @@ export const useHabitsStore = defineStore('habits', () => {
       for (const weekday of activeWeekdays) {
         const offset = (weekday + 1) % 7
         const date = PersianDate.addDays(currentWeekSat, offset)
-        const tasks = habit.weeklySchedule?.[weekday] || []
-        if (tasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, date))) {
+        const tasks = getTasksForHabitOnDate(habit, date)
+        if (tasks.length > 0 && tasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, date))) {
           completedDays++
         }
       }
@@ -607,8 +680,8 @@ export const useHabitsStore = defineStore('habits', () => {
       if (completedDays === totalDays) {
         currentStatus = { type: 'completed', message: `✨ هر ${toPersianDigits(totalDays)} روز این هفته کامل شد` }
       } else if (activeWeekdays.includes(todayWeekday)) {
-        const todayTasks = habit.weeklySchedule?.[todayWeekday] || []
-        const todayDone = todayTasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, today))
+        const todayTasks = getTasksForHabitOnDate(habit, today)
+        const todayDone = todayTasks.length > 0 && todayTasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, today))
         if (!todayDone) {
           currentStatus = {
             type: 'today_pending',
@@ -644,6 +717,9 @@ export const useHabitsStore = defineStore('habits', () => {
   function getMonthlyStreakOverview(habit: Habit): HabitStreakOverview {
     const today = PersianDate.today()
     const currentJ = today.toJalali()
+    const habitCreatedStart = getHabitCreationStartOfDay(habit)
+    const createdJ = habit.createdAt ? new PersianDate(habit.createdAt).toJalali() : null
+
     const activeEntries = Object.entries(habit.monthlySchedule || {}).filter(
       ([, tasks]) => tasks && tasks.length > 0
     )
@@ -654,15 +730,22 @@ export const useHabitsStore = defineStore('habits', () => {
     function isMonthCompleted(jy: number, jm: number): boolean {
       if (!hasScheduledTasks || !habit.monthlySchedule) return false
       const daysInMonth = getDaysInJalaliMonth(jy, jm)
+      let checkedAny = false
       for (const d of scheduledDays) {
         if (d <= daysInMonth) {
-          const tasks = habit.monthlySchedule[d] || []
           const date = PersianDate.fromJalali(jy, jm, d)
-          const allDone = tasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, date))
-          if (!allDone) return false
+          if (PersianDate.startOfDay(date).getTime() < habitCreatedStart) {
+            continue
+          }
+          const tasks = getTasksForHabitOnDate(habit, date)
+          if (tasks.length > 0) {
+            checkedAny = true
+            const allDone = tasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, date))
+            if (!allDone) return false
+          }
         }
       }
-      return true
+      return checkedAny
     }
 
     const items: HabitHistoryItem[] = []
@@ -677,14 +760,23 @@ export const useHabitsStore = defineStore('habits', () => {
       const isCurrent = m === 0
       let status: HabitHistoryItem['status'] = 'empty'
 
+      const isBeforeCreationMonth = createdJ && (
+        targetYear < createdJ.year ||
+        (targetYear === createdJ.year && targetMonth < createdJ.month)
+      )
+
       if (hasScheduledTasks) {
-        const allDone = isMonthCompleted(targetYear, targetMonth)
-        if (allDone) {
-          status = 'completed'
-        } else if (isCurrent) {
-          status = 'pending'
+        if (isBeforeCreationMonth) {
+          status = 'empty'
         } else {
-          status = 'missed'
+          const allDone = isMonthCompleted(targetYear, targetMonth)
+          if (allDone) {
+            status = 'completed'
+          } else if (isCurrent) {
+            status = 'pending'
+          } else {
+            status = 'missed'
+          }
         }
       }
 
@@ -715,6 +807,9 @@ export const useHabitsStore = defineStore('habits', () => {
         while (targetMonth <= 0) {
           targetMonth += 12
           targetYear -= 1
+        }
+        if (createdJ && (targetYear < createdJ.year || (targetYear === createdJ.year && targetMonth < createdJ.month))) {
+          break
         }
         if (isMonthCompleted(targetYear, targetMonth)) {
           streak++
