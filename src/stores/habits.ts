@@ -1,8 +1,35 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
-import { PersianDate } from '@/modules/timeline/PersianDate'
+import {
+  PersianDate,
+  MONTHS_FA,
+  getDaysInJalaliMonth,
+  toPersianDigits,
+} from '@/modules/timeline/PersianDate'
 
 export type HabitPeriod = 'daily' | 'weekly' | 'monthly'
+
+export interface HabitHistoryItem {
+  key: string
+  label: string
+  sublabel?: string
+  isCurrent: boolean
+  status: 'completed' | 'missed' | 'pending' | 'empty'
+}
+
+export interface HabitCurrentStatus {
+  type: 'completed' | 'today_pending' | 'upcoming' | 'empty'
+  message: string
+}
+
+export interface HabitStreakOverview {
+  streak: number
+  periodUnit: string
+  streakLabel: string
+  title: string
+  currentStatus: HabitCurrentStatus
+  items: HabitHistoryItem[]
+}
 
 export interface HabitTask {
   id: string
@@ -342,28 +369,409 @@ export const useHabitsStore = defineStore('habits', () => {
     return 0
   }
 
-  // Calculate streak: consecutive active days where all scheduled tasks were completed
-  function calculateHabitStreak(habit: Habit): number {
+  // -------------------------------------------------------------
+  // Daily Streak & History (Last 7 Days)
+  // -------------------------------------------------------------
+  function getDailyStreakOverview(habit: Habit): HabitStreakOverview {
+    const today = PersianDate.today()
+    const items: HabitHistoryItem[] = []
+    const dayTasks = habit.dailyTasks || []
+    const hasTasks = dayTasks.length > 0
+
+    for (let i = 6; i >= 0; i--) {
+      const d = PersianDate.addDays(today, -i)
+      const isToday = i === 0
+      let status: HabitHistoryItem['status'] = 'empty'
+
+      if (hasTasks) {
+        const allDone = dayTasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, d))
+        if (allDone) {
+          status = 'completed'
+        } else if (isToday) {
+          status = 'pending'
+        } else {
+          status = 'missed'
+        }
+      }
+
+      const weekday = d.value.getDay()
+      const weekdayItem = WEEKDAYS_MAP.find((w) => w.dayIndex === weekday)
+      const label = weekdayItem ? weekdayItem.shortName : ''
+      const sublabel = toPersianDigits(d.toJalali().day)
+
+      items.push({
+        key: `d-${d.value.getTime()}`,
+        label,
+        sublabel,
+        isCurrent: isToday,
+        status,
+      })
+    }
+
     let streak = 0
-    let checkDate = PersianDate.today()
-    // Check up to 60 days in the past
-    for (let i = 0; i < 60; i++) {
-      const scheduledTasks = getTasksForHabitOnDate(habit, checkDate)
-      if (scheduledTasks.length > 0) {
-        const allDone = scheduledTasks.every((t) =>
-          isTaskCompletedOnDate(habit.id, t.id, checkDate)
-        )
+    let todayDone = false
+    if (hasTasks) {
+      todayDone = dayTasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, today))
+      let checkDate = todayDone ? today : PersianDate.addDays(today, -1)
+
+      for (let i = 0; i < 365; i++) {
+        const allDone = dayTasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, checkDate))
         if (allDone) {
           streak++
-        } else if (i === 0) {
-          // Today not done yet; does not break the past streak yet
+          checkDate = PersianDate.addDays(checkDate, -1)
         } else {
           break
         }
       }
-      checkDate = PersianDate.addDays(checkDate, -1)
     }
-    return streak
+
+    let currentStatus: HabitCurrentStatus
+    if (!hasTasks) {
+      currentStatus = { type: 'empty', message: 'بدون تسک تعریف‌شده' }
+    } else if (todayDone) {
+      currentStatus = { type: 'completed', message: '✨ کارهای امروز انجام شد' }
+    } else {
+      currentStatus = { type: 'today_pending', message: '🎯 نوبت کارهای امروز' }
+    }
+
+    return {
+      streak,
+      periodUnit: 'روز',
+      streakLabel: streak > 0 ? `${toPersianDigits(streak)} روز متوالی` : '۰ روز استمرار',
+      title: '۷ روز گذشته',
+      currentStatus,
+      items,
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Weekly Streak & History (Last 7 Weeks / Occasions)
+  // -------------------------------------------------------------
+  function getWeeklyStreakOverview(habit: Habit): HabitStreakOverview {
+    const today = PersianDate.today()
+    const todayWeekday = today.value.getDay()
+    const daysSinceSat = (todayWeekday + 1) % 7
+    const currentWeekSat = PersianDate.addDays(today, -daysSinceSat)
+
+    const activeEntries = Object.entries(habit.weeklySchedule || {}).filter(
+      ([, tasks]) => tasks && tasks.length > 0
+    )
+    const activeWeekdays = activeEntries.map(([d]) => Number(d))
+    const isSingleDay = activeWeekdays.length === 1
+    const singleWeekdayIndex = isSingleDay ? activeWeekdays[0] : null
+    const singleWeekdayInfo = singleWeekdayIndex !== null
+      ? WEEKDAYS_MAP.find((w) => w.dayIndex === singleWeekdayIndex)
+      : null
+
+    const hasScheduledTasks = activeWeekdays.length > 0
+
+    function isWeekCompleted(startSat: PersianDate): boolean {
+      if (!hasScheduledTasks || !habit.weeklySchedule) return false
+      for (const weekday of activeWeekdays) {
+        const dayOffset = (weekday + 1) % 7
+        const dayDate = PersianDate.addDays(startSat, dayOffset)
+        const tasks = habit.weeklySchedule[weekday] || []
+        const allDone = tasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, dayDate))
+        if (!allDone) return false
+      }
+      return true
+    }
+
+    const items: HabitHistoryItem[] = []
+    for (let w = 6; w >= 0; w--) {
+      const weekSat = PersianDate.addDays(currentWeekSat, -w * 7)
+      const isCurrent = w === 0
+      let status: HabitHistoryItem['status'] = 'empty'
+
+      if (hasScheduledTasks) {
+        if (isSingleDay && singleWeekdayIndex !== null) {
+          const singleDayOffset = (singleWeekdayIndex + 1) % 7
+          const singleDate = PersianDate.addDays(weekSat, singleDayOffset)
+          const tasks = habit.weeklySchedule?.[singleWeekdayIndex] || []
+          const singleDone = tasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, singleDate))
+          if (singleDone) {
+            status = 'completed'
+          } else if (singleDate.value.getTime() <= today.value.getTime()) {
+            if (singleDate.value.getTime() === today.value.getTime()) {
+              status = 'pending'
+            } else {
+              status = 'missed'
+            }
+          } else {
+            status = 'pending'
+          }
+        } else {
+          const allDone = isWeekCompleted(weekSat)
+          if (allDone) {
+            status = 'completed'
+          } else if (isCurrent) {
+            status = 'pending'
+          } else {
+            status = 'missed'
+          }
+        }
+      }
+
+      let targetDate = weekSat
+      if (isSingleDay && singleWeekdayIndex !== null) {
+        const singleDayOffset = (singleWeekdayIndex + 1) % 7
+        targetDate = PersianDate.addDays(weekSat, singleDayOffset)
+      }
+      const jDate = targetDate.toJalali()
+      const label = `${toPersianDigits(jDate.day)} ${MONTHS_FA[jDate.month - 1]}`
+      const sublabel = isSingleDay && singleWeekdayInfo ? singleWeekdayInfo.name : undefined
+
+      items.push({
+        key: `w-${targetDate.value.getTime()}`,
+        label,
+        sublabel,
+        isCurrent,
+        status,
+      })
+    }
+
+    let streak = 0
+    if (hasScheduledTasks) {
+      if (isSingleDay && singleWeekdayIndex !== null) {
+        const singleDayOffset = (singleWeekdayIndex + 1) % 7
+        const thisWeekDate = PersianDate.addDays(currentWeekSat, singleDayOffset)
+        const tasks = habit.weeklySchedule?.[singleWeekdayIndex] || []
+        const currentDone = tasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, thisWeekDate))
+        const startW = currentDone ? 0 : 1
+        for (let w = startW; w < 52; w++) {
+          const pastWeekSat = PersianDate.addDays(currentWeekSat, -w * 7)
+          const pastDate = PersianDate.addDays(pastWeekSat, singleDayOffset)
+          const allDone = tasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, pastDate))
+          if (allDone) {
+            streak++
+          } else {
+            break
+          }
+        }
+      } else {
+        const currentWeekDone = isWeekCompleted(currentWeekSat)
+        const startW = currentWeekDone ? 0 : 1
+        for (let w = startW; w < 52; w++) {
+          const weekSat = PersianDate.addDays(currentWeekSat, -w * 7)
+          if (isWeekCompleted(weekSat)) {
+            streak++
+          } else {
+            break
+          }
+        }
+      }
+    }
+
+    let periodUnit = 'هفته'
+    let streakLabel = '۰ هفته استمرار'
+    if (isSingleDay && singleWeekdayInfo) {
+      periodUnit = singleWeekdayInfo.name
+      streakLabel = streak > 0 ? `${toPersianDigits(streak)} ${singleWeekdayInfo.name} متوالی` : `۰ ${singleWeekdayInfo.name} استمرار`
+    } else {
+      periodUnit = 'هفته'
+      streakLabel = streak > 0 ? `${toPersianDigits(streak)} هفته کامل` : '۰ هفته استمرار'
+    }
+
+    let currentStatus: HabitCurrentStatus
+    if (!hasScheduledTasks) {
+      currentStatus = { type: 'empty', message: 'بدون روز فعال در هفته' }
+    } else if (isSingleDay && singleWeekdayIndex !== null && singleWeekdayInfo) {
+      const singleDayOffset = (singleWeekdayIndex + 1) % 7
+      const thisWeekDate = PersianDate.addDays(currentWeekSat, singleDayOffset)
+      const tasks = habit.weeklySchedule?.[singleWeekdayIndex] || []
+      const doneThisWeek = tasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, thisWeekDate))
+
+      if (doneThisWeek) {
+        currentStatus = { type: 'completed', message: `✨ کار این هفته (${singleWeekdayInfo.name}) انجام شد` }
+      } else if (todayWeekday === singleWeekdayIndex) {
+        currentStatus = { type: 'today_pending', message: `🎯 امروز ${singleWeekdayInfo.name} است؛ نوبت این عادت!` }
+      } else {
+        let diffDays = (singleWeekdayIndex - todayWeekday + 7) % 7
+        if (diffDays === 0) diffDays = 7
+        currentStatus = {
+          type: 'upcoming',
+          message: `⏳ موعد بعدی: ${singleWeekdayInfo.name} (${toPersianDigits(diffDays)} روز دیگر)`,
+        }
+      }
+    } else {
+      let completedDays = 0
+      for (const weekday of activeWeekdays) {
+        const offset = (weekday + 1) % 7
+        const date = PersianDate.addDays(currentWeekSat, offset)
+        const tasks = habit.weeklySchedule?.[weekday] || []
+        if (tasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, date))) {
+          completedDays++
+        }
+      }
+      const totalDays = activeWeekdays.length
+      if (completedDays === totalDays) {
+        currentStatus = { type: 'completed', message: `✨ هر ${toPersianDigits(totalDays)} روز این هفته کامل شد` }
+      } else if (activeWeekdays.includes(todayWeekday)) {
+        const todayTasks = habit.weeklySchedule?.[todayWeekday] || []
+        const todayDone = todayTasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, today))
+        if (!todayDone) {
+          currentStatus = {
+            type: 'today_pending',
+            message: `🎯 امروز نوبت تمرین است (${toPersianDigits(completedDays)} از ${toPersianDigits(totalDays)} روز)`,
+          }
+        } else {
+          currentStatus = {
+            type: 'upcoming',
+            message: `${toPersianDigits(completedDays)} از ${toPersianDigits(totalDays)} روز این هفته انجام شده`,
+          }
+        }
+      } else {
+        currentStatus = {
+          type: 'upcoming',
+          message: `${toPersianDigits(completedDays)} از ${toPersianDigits(totalDays)} روز این هفته انجام شده`,
+        }
+      }
+    }
+
+    return {
+      streak,
+      periodUnit,
+      streakLabel,
+      title: isSingleDay && singleWeekdayInfo ? `۷ ${singleWeekdayInfo.name} اخیر` : '۷ هفته اخیر',
+      currentStatus,
+      items,
+    }
+  }
+
+  // -------------------------------------------------------------
+  // Monthly Streak & History (Last 7 Months)
+  // -------------------------------------------------------------
+  function getMonthlyStreakOverview(habit: Habit): HabitStreakOverview {
+    const today = PersianDate.today()
+    const currentJ = today.toJalali()
+    const activeEntries = Object.entries(habit.monthlySchedule || {}).filter(
+      ([, tasks]) => tasks && tasks.length > 0
+    )
+    const scheduledDays = activeEntries.map(([d]) => Number(d)).sort((a, b) => a - b)
+    const hasScheduledTasks = scheduledDays.length > 0
+    const isSingleDay = scheduledDays.length === 1
+
+    function isMonthCompleted(jy: number, jm: number): boolean {
+      if (!hasScheduledTasks || !habit.monthlySchedule) return false
+      const daysInMonth = getDaysInJalaliMonth(jy, jm)
+      for (const d of scheduledDays) {
+        if (d <= daysInMonth) {
+          const tasks = habit.monthlySchedule[d] || []
+          const date = PersianDate.fromJalali(jy, jm, d)
+          const allDone = tasks.every((t) => isTaskCompletedOnDate(habit.id, t.id, date))
+          if (!allDone) return false
+        }
+      }
+      return true
+    }
+
+    const items: HabitHistoryItem[] = []
+    for (let m = 6; m >= 0; m--) {
+      let targetYear = currentJ.year
+      let targetMonth = currentJ.month - m
+      while (targetMonth <= 0) {
+        targetMonth += 12
+        targetYear -= 1
+      }
+
+      const isCurrent = m === 0
+      let status: HabitHistoryItem['status'] = 'empty'
+
+      if (hasScheduledTasks) {
+        const allDone = isMonthCompleted(targetYear, targetMonth)
+        if (allDone) {
+          status = 'completed'
+        } else if (isCurrent) {
+          status = 'pending'
+        } else {
+          status = 'missed'
+        }
+      }
+
+      const label = MONTHS_FA[targetMonth - 1]
+      let sublabel = ''
+      if (isSingleDay) {
+        sublabel = `روز ${toPersianDigits(scheduledDays[0])}`
+      } else if (targetYear !== currentJ.year) {
+        sublabel = toPersianDigits(targetYear)
+      }
+
+      items.push({
+        key: `m-${targetYear}-${targetMonth}`,
+        label,
+        sublabel: sublabel || undefined,
+        isCurrent,
+        status,
+      })
+    }
+
+    let streak = 0
+    if (hasScheduledTasks) {
+      const currentMonthDone = isMonthCompleted(currentJ.year, currentJ.month)
+      const startM = currentMonthDone ? 0 : 1
+      for (let m = startM; m < 36; m++) {
+        let targetYear = currentJ.year
+        let targetMonth = currentJ.month - m
+        while (targetMonth <= 0) {
+          targetMonth += 12
+          targetYear -= 1
+        }
+        if (isMonthCompleted(targetYear, targetMonth)) {
+          streak++
+        } else {
+          break
+        }
+      }
+    }
+
+    let currentStatus: HabitCurrentStatus
+    if (!hasScheduledTasks) {
+      currentStatus = { type: 'empty', message: 'بدون روز فعال در ماه' }
+    } else {
+      const currentMonthDone = isMonthCompleted(currentJ.year, currentJ.month)
+      if (currentMonthDone) {
+        currentStatus = { type: 'completed', message: '✨ هدف این ماه با موفقیت انجام شد' }
+      } else if (scheduledDays.includes(currentJ.day)) {
+        currentStatus = { type: 'today_pending', message: '🎯 امروز موعد ماهانه این عادت است!' }
+      } else {
+        const nextDay = scheduledDays.find((d) => d > currentJ.day)
+        if (nextDay) {
+          const diff = nextDay - currentJ.day
+          currentStatus = {
+            type: 'upcoming',
+            message: `⏳ موعد بعدی: روز ${toPersianDigits(nextDay)} ماه (${toPersianDigits(diff)} روز دیگر)`,
+          }
+        } else {
+          currentStatus = {
+            type: 'upcoming',
+            message: `⏳ موعد بعدی: روز ${toPersianDigits(scheduledDays[0])} ماه بعد`,
+          }
+        }
+      }
+    }
+
+    return {
+      streak,
+      periodUnit: 'ماه',
+      streakLabel: streak > 0 ? `${toPersianDigits(streak)} ماه متوالی` : '۰ ماه استمرار',
+      title: '۷ ماه اخیر',
+      currentStatus,
+      items,
+    }
+  }
+
+  function getHabitStreakOverview(habit: Habit): HabitStreakOverview {
+    if (habit.period === 'daily') {
+      return getDailyStreakOverview(habit)
+    }
+    if (habit.period === 'weekly') {
+      return getWeeklyStreakOverview(habit)
+    }
+    return getMonthlyStreakOverview(habit)
+  }
+
+  function calculateHabitStreak(habit: Habit): number {
+    return getHabitStreakOverview(habit).streak
   }
 
   // Get all habit tasks scheduled across all active habits on a given date
@@ -401,5 +809,6 @@ export const useHabitsStore = defineStore('habits', () => {
     toggleTaskCompletion,
     getTotalTasksCount,
     calculateHabitStreak,
+    getHabitStreakOverview,
   }
 })

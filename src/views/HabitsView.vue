@@ -5,12 +5,10 @@ import { registerBackHandler } from '@/composables/useBackButton'
 import { toPersianDigits } from '@/modules/timeline/PersianDate'
 import {
   useHabitsStore,
-  WEEKDAYS_MAP,
   type Habit,
   type HabitPeriod,
 } from '@/stores/habits'
 import HabitFormSheet from '@/components/ui/HabitFormSheet.vue'
-import DeleteConfirmDialog from '@/components/ui/DeleteConfirmDialog.vue'
 import texturePatternImg from '@/assets/images/Texture-01-xs-green.png'
 import planningCharacterImg from '@/assets/images/planning_character_01.png'
 
@@ -21,16 +19,9 @@ defineOptions({
 const router = useRouter()
 const habitsStore = useHabitsStore()
 
-// Period filter: 'all' | 'daily' | 'weekly' | 'monthly'
-const periodFilter = ref<'all' | HabitPeriod>('all')
-
 // Form sheet state
 const isFormSheetOpen = ref(false)
 const habitToEdit = ref<Habit | null>(null)
-
-// Delete dialog state
-const isDeleteDialogOpen = ref(false)
-const habitToDelete = ref<Habit | null>(null)
 
 // Toast notification
 const toastMessage = ref('')
@@ -55,10 +46,6 @@ onBeforeUnmount(() => {
 const unregisterBackHandler = registerBackHandler(() => {
   if (router.currentRoute.value.name !== 'habits') return false
 
-  if (isDeleteDialogOpen.value) {
-    isDeleteDialogOpen.value = false
-    return true
-  }
   if (isFormSheetOpen.value) {
     isFormSheetOpen.value = false
     return true
@@ -67,25 +54,15 @@ const unregisterBackHandler = registerBackHandler(() => {
 })
 
 // -------------------------------------------------------------
-// Filtered Habits List
+// All Habits List
 // -------------------------------------------------------------
-const filteredHabits = computed(() => {
-  if (periodFilter.value === 'all') {
-    return habitsStore.habits
-  }
-  return habitsStore.habits.filter((h) => h.period === periodFilter.value)
-})
+const filteredHabits = computed(() => habitsStore.habits)
 
 // -------------------------------------------------------------
-// Habit CRUD Handlers
+// Habit Creation Handler
 // -------------------------------------------------------------
 function openCreateSheet() {
   habitToEdit.value = null
-  isFormSheetOpen.value = true
-}
-
-function openEditSheet(habit: Habit) {
-  habitToEdit.value = habit
   isFormSheetOpen.value = true
 }
 
@@ -108,49 +85,6 @@ function handleSaveHabit(data: { title: string; period: HabitPeriod }) {
     showToast('عادت ایجاد شد')
   }
 }
-
-function requestDeleteHabit(habit: Habit) {
-  habitToDelete.value = habit
-  isDeleteDialogOpen.value = true
-}
-
-function confirmDeleteHabit() {
-  if (!habitToDelete.value) return
-  const title = habitToDelete.value.title
-  habitsStore.deleteHabit(habitToDelete.value.id)
-  habitToDelete.value = null
-  showToast(`عادت «${title}» حذف شد`)
-}
-
-// Helper to format schedule text for cards
-function getHabitScheduleSummary(habit: Habit): string {
-  if (habit.period === 'daily') {
-    const count = habit.dailyTasks?.length || 0
-    return `${toPersianDigits(count)} تسک تکرار روزانه`
-  }
-  if (habit.period === 'weekly') {
-    const activeDays = Object.entries(habit.weeklySchedule || {})
-      .filter(([, tasks]) => tasks && tasks.length > 0)
-      .map(([dayStr]) => {
-        const found = WEEKDAYS_MAP.find((w) => w.dayIndex === Number(dayStr))
-        return found ? found.name : ''
-      })
-      .filter(Boolean)
-
-    if (activeDays.length === 7) return 'تمام روزهای هفته'
-    if (activeDays.length === 0) return 'بدون روز فعال'
-    return activeDays.join('، ')
-  }
-  if (habit.period === 'monthly') {
-    const activeDays = Object.entries(habit.monthlySchedule || {})
-      .filter(([, tasks]) => tasks && tasks.length > 0)
-      .map(([dayStr]) => `روز ${toPersianDigits(dayStr)}`)
-
-    if (activeDays.length === 0) return 'بدون روز فعال'
-    return activeDays.join('، ') + ' هر ماه'
-  }
-  return ''
-}
 </script>
 
 <template>
@@ -169,73 +103,6 @@ function getHabitScheduleSummary(habit: Habit): string {
             روال‌های منظم و ساخت عادت‌های پایدار
           </p>
         </div>
-
-        <!-- Create Button in Header -->
-        <button
-          type="button"
-          class="flex items-center gap-1.5 rounded-full bg-amber-500 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-amber-600 active:scale-95 transition cursor-pointer"
-          @click="openCreateSheet"
-        >
-          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          <span>عادت جدید</span>
-        </button>
-      </div>
-
-      <!-- Period Filter Pills -->
-      <div class="mx-auto max-w-2xl mt-3 flex items-center gap-1.5 overflow-x-auto select-none">
-        <button
-          type="button"
-          class="rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer shrink-0"
-          :class="
-            periodFilter === 'all'
-              ? 'bg-amber-600 text-white shadow-xs'
-              : 'bg-slate-100/90 text-slate-600 hover:bg-slate-200/80'
-          "
-          @click="periodFilter = 'all'"
-        >
-          همه ({{ toPersianDigits(habitsStore.habits.length) }})
-        </button>
-
-        <button
-          type="button"
-          class="rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer shrink-0"
-          :class="
-            periodFilter === 'daily'
-              ? 'bg-amber-600 text-white shadow-xs'
-              : 'bg-slate-100/90 text-slate-600 hover:bg-slate-200/80'
-          "
-          @click="periodFilter = 'daily'"
-        >
-          هر روز
-        </button>
-
-        <button
-          type="button"
-          class="rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer shrink-0"
-          :class="
-            periodFilter === 'weekly'
-              ? 'bg-amber-600 text-white shadow-xs'
-              : 'bg-slate-100/90 text-slate-600 hover:bg-slate-200/80'
-          "
-          @click="periodFilter = 'weekly'"
-        >
-          هفتگی
-        </button>
-
-        <button
-          type="button"
-          class="rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer shrink-0"
-          :class="
-            periodFilter === 'monthly'
-              ? 'bg-amber-600 text-white shadow-xs'
-              : 'bg-slate-100/90 text-slate-600 hover:bg-slate-200/80'
-          "
-          @click="periodFilter = 'monthly'"
-        >
-          ماهانه
-        </button>
       </div>
     </header>
 
@@ -268,7 +135,7 @@ function getHabitScheduleSummary(habit: Habit): string {
                 loading="lazy"
               />
               <p class="mt-3 inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2 text-xs font-medium text-slate-600 shadow-sm">
-                هیچ عادتی در این بخش وجود ندارد
+                هیچ عادتی تعریف نشده است
               </p>
               <button
                 type="button"
@@ -288,77 +155,134 @@ function getHabitScheduleSummary(habit: Habit): string {
               class="group relative flex flex-col rounded-3xl border border-slate-200/90 bg-white/95 backdrop-blur-xs p-4 sm:p-5 shadow-xs transition hover:border-slate-300 hover:shadow-md cursor-pointer active:scale-[0.99]"
               @click="navigateToHabit(habit.id)"
             >
-              <!-- Card Top Row: Title, Period Badge, Edit & Delete Buttons -->
-              <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <span
-                      class="rounded-lg px-2 py-0.5 text-[10px] font-bold"
-                      :class="
-                        habit.period === 'daily'
-                          ? 'bg-sky-100 text-sky-800'
-                          : habit.period === 'weekly'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-indigo-100 text-indigo-800'
-                      "
-                    >
-                      {{ habit.period === 'daily' ? 'هر روز' : habit.period === 'weekly' ? 'هفتگی' : 'ماهانه' }}
-                    </span>
-                    <h3 class="text-sm sm:text-base font-bold text-slate-900 truncate">
-                      {{ habit.title }}
-                    </h3>
-                  </div>
-
-                  <p class="text-xs text-slate-500 mt-1">
-                    {{ getHabitScheduleSummary(habit) }}
-                  </p>
+              <!-- Card Top Row: Title, Period Badge, and Streak Badge -->
+              <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span
+                    class="rounded-lg px-2 py-0.5 text-[10px] font-bold shrink-0"
+                    :class="
+                      habit.period === 'daily'
+                        ? 'bg-sky-100 text-sky-800'
+                        : habit.period === 'weekly'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-indigo-100 text-indigo-800'
+                    "
+                  >
+                    {{ habit.period === 'daily' ? 'هر روز' : habit.period === 'weekly' ? 'هفتگی' : 'ماهانه' }}
+                  </span>
+                  <h3 class="text-sm sm:text-base font-bold text-slate-900 truncate">
+                    {{ habit.title }}
+                  </h3>
                 </div>
 
-                <!-- Action Buttons: Edit, Delete -->
-                <div class="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    class="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-slate-200 active:scale-95 cursor-pointer"
-                    title="ویرایش مشخصات عادت"
-                    aria-label="ویرایش مشخصات عادت"
-                    @click.stop="openEditSheet(habit)"
+                <!-- Streak badge (flame icon + personalized count + unit) -->
+                <div class="shrink-0">
+                  <div
+                    v-if="habitsStore.getHabitStreakOverview(habit).streak > 0"
+                    class="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200/80 px-2.5 py-1 text-xs font-bold text-amber-700 shadow-2xs"
                   >
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                  </button>
-
-                  <button
-                    type="button"
-                    class="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-rose-50 hover:text-rose-600 active:scale-95 cursor-pointer"
-                    title="حذف عادت"
-                    aria-label="حذف عادت"
-                    @click.stop="requestDeleteHabit(habit)"
+                    <span class="text-xs">🔥</span>
+                    <span>{{ habitsStore.getHabitStreakOverview(habit).streakLabel }}</span>
+                  </div>
+                  <div
+                    v-else
+                    class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-400"
                   >
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                    <span>{{ habitsStore.getHabitStreakOverview(habit).streakLabel }}</span>
+                  </div>
                 </div>
               </div>
 
-              <!-- Habit Summary & Link to Details -->
-              <div class="mt-3 flex items-center justify-between pt-2.5 border-t border-slate-100">
-                <div class="flex items-center gap-2 text-xs text-slate-600">
-                  <span class="font-semibold">{{ toPersianDigits(habitsStore.getTotalTasksCount(habit)) }} تسک تعریف‌شده</span>
+              <!-- Motivating Current Status / Next Action Indicator -->
+              <div class="mt-2.5 flex items-center">
+                <div
+                  class="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-[11px] transition"
+                  :class="{
+                    'bg-emerald-50 text-emerald-800 border border-emerald-200/90 font-bold':
+                      habitsStore.getHabitStreakOverview(habit).currentStatus.type === 'completed',
+                    'bg-amber-100/90 text-amber-900 border border-amber-300 font-bold':
+                      habitsStore.getHabitStreakOverview(habit).currentStatus.type === 'today_pending',
+                    'bg-slate-100/90 text-slate-600 font-medium':
+                      habitsStore.getHabitStreakOverview(habit).currentStatus.type === 'upcoming',
+                    'bg-slate-50 text-slate-400 font-normal':
+                      habitsStore.getHabitStreakOverview(habit).currentStatus.type === 'empty',
+                  }"
+                >
                   <span
-                    v-if="habitsStore.calculateHabitStreak(habit) > 0"
-                    class="text-amber-700 font-bold"
-                  >
-                    · 🔥 {{ toPersianDigits(habitsStore.calculateHabitStreak(habit)) }} روز استمرار
+                    v-if="habitsStore.getHabitStreakOverview(habit).currentStatus.type === 'today_pending'"
+                    class="h-1.5 w-1.5 rounded-full bg-amber-600 animate-ping inline-block"
+                  />
+                  <span>{{ habitsStore.getHabitStreakOverview(habit).currentStatus.message }}</span>
+                </div>
+              </div>
+
+              <!-- 7 Periods Tracker Row -->
+              <div class="mt-3 pt-3 border-t border-slate-100">
+                <div class="flex items-center justify-between text-[11px] text-slate-400 font-medium mb-2 px-0.5">
+                  <span class="font-semibold text-slate-500">{{ habitsStore.getHabitStreakOverview(habit).title }}</span>
+                  <span class="text-[10px] text-slate-400">
+                    {{ habit.period === 'daily' ? 'وضعیت روزها' : habit.period === 'weekly' ? 'وضعیت نوبت‌ها' : 'وضعیت ماه‌ها' }}
                   </span>
                 </div>
 
-                <div class="flex items-center gap-1 text-xs font-semibold text-amber-700 group-hover:text-amber-800 transition">
-                  <span>مدیریت و جزئیات تسک‌ها</span>
-                  <svg class="h-3.5 w-3.5 transition-transform duration-200 group-hover:-translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-                  </svg>
+                <!-- 7 items in a grid -->
+                <div class="grid grid-cols-7 gap-1 sm:gap-2">
+                  <div
+                    v-for="item in habitsStore.getHabitStreakOverview(habit).items"
+                    :key="item.key"
+                    class="flex flex-col items-center justify-center rounded-2xl py-1.5 px-0.5 sm:px-1 transition"
+                    :class="[
+                      item.isCurrent
+                        ? 'bg-amber-50/50 ring-1 ring-amber-200/70'
+                        : 'bg-slate-50/70'
+                    ]"
+                  >
+                    <!-- Label (Weekday short name / Week date / Month name) -->
+                    <span
+                      class="text-[9px] sm:text-[11px] text-center leading-tight truncate max-w-full mb-1.5"
+                      :class="item.isCurrent ? 'text-amber-900 font-bold' : 'text-slate-600 font-medium'"
+                    >
+                      {{ item.label }}
+                    </span>
+
+                    <!-- Indicator Circle -->
+                    <div
+                      class="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full text-xs font-bold transition"
+                      :class="{
+                        'bg-gradient-to-tr from-amber-500 to-orange-500 text-white shadow-2xs shadow-amber-500/30': item.status === 'completed',
+                        'bg-slate-100 text-slate-400 border border-slate-200': item.status === 'missed',
+                        'bg-amber-100 text-amber-700 border-2 border-dashed border-amber-400': item.status === 'pending',
+                        'bg-slate-100/60 text-slate-300': item.status === 'empty'
+                      }"
+                    >
+                      <!-- Completed: Clean Flame of Fire -->
+                      <svg
+                        v-if="item.status === 'completed'"
+                        class="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-white"
+                        viewBox="0 0 384 512"
+                      >
+                        <path d="M216 23.86c0-23.8-30.65-32.77-44.15-13.04C48 191.85 224 200 224 288c0 35.63-29.11 64.46-64.85 63.99-35.17-.45-63.15-29.77-63.15-64.94v-85.51c0-21.7-26.47-32.23-41.43-16.5C27.8 213.16 0 261.33 0 320c0 105.87 86.13 192 192 192s192-86.13 192-192c0-170.29-168-193-168-296.14z" />
+                      </svg>
+                      <!-- Pending: Small dot -->
+                      <span
+                        v-else-if="item.status === 'pending'"
+                        class="h-2 w-2 rounded-full bg-amber-500 animate-pulse"
+                      />
+                      <!-- Missed: Simple dash -->
+                      <span v-else-if="item.status === 'missed'" class="text-xs font-semibold leading-none">−</span>
+                      <!-- Empty: Dot -->
+                      <span v-else class="h-1 w-1 rounded-full bg-slate-300" />
+                    </div>
+
+                    <!-- Sublabel (Day number / Month day) -->
+                    <span
+                      v-if="item.sublabel"
+                      class="text-[9px] sm:text-[10px] mt-1 truncate max-w-full leading-tight"
+                      :class="item.isCurrent ? 'text-amber-800 font-bold' : 'text-slate-400 font-medium'"
+                    >
+                      {{ item.sublabel }}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -385,16 +309,6 @@ function getHabitScheduleSummary(habit: Habit): string {
       v-model="isFormSheetOpen"
       :habit="habitToEdit"
       @submit="handleSaveHabit"
-    />
-
-    <!-- Delete Confirmation Dialog -->
-    <DeleteConfirmDialog
-      v-model="isDeleteDialogOpen"
-      title="حذف عادت"
-      message="آیا از حذف این عادت اطمینان دارید؟ تمام تسک‌ها و تنظیمات دوره تکرار این عادت برای همیشه پاک خواهد شد."
-      :task-title="habitToDelete?.title || ''"
-      confirm-button-text="بله، حذف عادت"
-      @confirm="confirmDeleteHabit"
     />
 
     <!-- Toast Notification -->
